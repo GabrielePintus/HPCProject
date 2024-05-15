@@ -1,6 +1,7 @@
 import subprocess
 from itertools import product
 from datetime import datetime
+from time import sleep
 
 
 class Combinations:
@@ -76,17 +77,28 @@ class Run:
 
 
 if __name__ == '__main__':
+    STORAGE = '/home/alejandro/Projects/mpi_benchmarks'
+    DELAY = 0.01
+    
+    # Define the parameters
     params = {
         'param1': [1, 2, 3],
         'param2': ['a', 'b', 'c'],
         'param3': [True, False]
     }
+    
+    # Generate all possible combinations and runs
     comb = Combinations(params)
     runs = Run.make_runs(comb)
+    
+    # Determine the total number of runs to be executed
     total_runs = Combinations.compute_length(params)
     counter = 0
     
+    # delay of 10 milliseconds
+    sleep(DELAY)
     
+    # Execute all runs
     for run in runs:
         # Create log file name and metadata
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -95,6 +107,9 @@ if __name__ == '__main__':
         
         # Run the command
         stdout, stderr = run()
+        
+        # delay of 10 milliseconds
+        sleep(DELAY)
         
         # Write the log file
         with open(filename, 'w') as f:
@@ -108,5 +123,10 @@ if __name__ == '__main__':
         # Print progress
         counter += 1
         print(f"{counter}/{total_runs} runs completed.")
+        
+        # delay of 10 milliseconds
+        sleep(DELAY)
+        
+    print("All runs completed!")
         
         
