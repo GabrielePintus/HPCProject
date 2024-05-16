@@ -26,7 +26,7 @@
 
 
 /**
- * @brief The width of the image.
+ * @brief A complex number.
  */
 typedef struct {
     double x;
@@ -61,15 +61,12 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
 {
     const double dx = (X_MAX - X_MIN) / WIDTH;
     const double dy = (Y_MAX - Y_MIN) / HEIGHT;
-    const int task_size = end_idx - start_idx;
-
 
     #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
-    for (int i = 0; i < task_size; ++i) {
+    for (int i = start_idx; i < end_idx; ++i) {
         // get x and y coordinates
-        const int shifted_idx = start_idx + i;
-        const int x = shifted_idx % WIDTH;
-        const int y = shifted_idx / WIDTH;
+        const int x = i % WIDTH;
+        const int y = i / WIDTH;
 
         // get complex point
         Complex c = {X_MIN + x * dx, Y_MIN + y * dy};
@@ -79,7 +76,7 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
         // iter = iter % MAX_ITER;
         
         // store the value
-        image[i] = iter;
+        image[i - start_idx] = iter;
     }
 }
 
