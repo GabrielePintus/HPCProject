@@ -4,13 +4,12 @@
 #include <stdint.h>
 #include <omp.h>
 #include <mpi.h>
+#include <string.h>
 
 
 // Mandelbrot set parameters
-#define WIDTH 513
-// #define WIDTH_EXP 12
+#define WIDTH 512
 #define HEIGHT 512
-// #define HEIGHT_EXP 12
 
 #define MAX_ITER 65535
 
@@ -44,7 +43,6 @@ typedef struct {
 int mandelbrot(const Complex c) {
     int n = 0;
     Complex z = {0, 0};
-    // while (n < MAX_ITER && (z.x * z.x + z.y * z.y) < 4) {
     while ((z.x * z.x + z.y * z.y) < 4 && n < MAX_ITER) {
         double temp = z.x * z.x - z.y * z.y + c.x;
         z.y = 2 * z.x * z.y + c.y;
@@ -59,31 +57,19 @@ int mandelbrot(const Complex c) {
  *
  * @param image A pointer to the image data.
  */
-void mandelbrot_set(uint8_t *image, const int start_row, const int end_row)
+void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx, const double dx, const double dy)
 {
-    const double dx = (X_MAX - X_MIN) / WIDTH;
-    const double dy = (Y_MAX - Y_MIN) / HEIGHT;
-    const int total_size = (end_row - start_row)*WIDTH;
+    const int task_size = end_idx - start_idx;
 
-    // #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
-    // for (int i = start_row; i < end_row; i++) {
-    //     for (int j = 0; j < WIDTH; j++) {
-    //         Complex c = {X_MIN + i * dx, Y_MIN + j * dy};
-    //         int iter = mandelbrot(c);
-    //         iter = iter % MAX_ITER;
-    //         image[(i - start_row) * WIDTH + j] = iter;
-    //     }
-    // }
     #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
-    for(int i=0; i<total_size; ++i){
-        // get row and col
-        int x = i / HEIGHT;
-        // int x = i >> WIDTH_EXP; 
-        int y = i % HEIGHT;
-        // int y = i & (HEIGHT-1); 
+    for (int i = 0; i < task_size; ++i) {
+        // get x and y coordinates
+        const int shifted_idx = start_idx + i;
+        const int x = shifted_idx % WIDTH;
+        const int y = shifted_idx / WIDTH;
 
         // get complex point
-        Complex c = {X_MIN + (x + start_row) * dx, Y_MIN + y * dy};
+        Complex c = {X_MIN + x * dx, Y_MIN + y * dy};
         
         // compute mandelbrot set in the point
         int iter = mandelbrot(c);
@@ -92,12 +78,7 @@ void mandelbrot_set(uint8_t *image, const int start_row, const int end_row)
         // store the value
         image[i] = iter;
     }
-
-
 }
-
-
-
 
 
 /**
@@ -107,9 +88,14 @@ void mandelbrot_set(uint8_t *image, const int start_row, const int end_row)
  * @param height The height of the image.
  * @return A pointer to the image data.
  */
-uint8_t* allocate_image(const int width, const int height)
+// uint8_t* allocate_image(const int width, const int height)
+// {
+//     uint8_t *image = (uint8_t *)calloc(width * height, sizeof(uint8_t));
+//     return image;
+// }
+uint8_t* allocate_image(const int size)
 {
-    uint8_t *image = (uint8_t *)calloc(width * height, sizeof(uint8_t));
+    uint8_t *image = (uint8_t *)calloc(size, sizeof(uint8_t));
     return image;
 }
 
@@ -155,11 +141,9 @@ int main(int argc, char *argv[])
     omp_set_num_threads(NUM_THREADS);
     printf("Number of threads: %d\n", NUM_THREADS);
     #endif
-    // Memory Variables
-    const int total_size = WIDTH * HEIGHT;
-    const int task_size = total_size / NUM_THREADS;
-    const int remainder = total_size % NUM_THREADS;
 
+    // First thing to do is to calculate the total size of the image
+    const int total_size = WIDTH * HEIGHT;
 
     // Initialize MPI
     int rank, size;
@@ -170,67 +154,65 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     printf("Rank: %d, Size: %d\n", rank, size);
 
-    // Compute the rows assigned to each process
-    puts("Computing rows assigned to each process...");
-    const int start_row = rank * task_size;
-    const int end_row = start_row + task_size + (rank < remainder ? 1 : 0);
-    const int task_mem = (end_row - start_row) * WIDTH;
-    printf("Rank: %d, Task memory: %d\n", rank, task_mem);
-    // Allocate memory for the task
-    puts("Allocating memory...");
-    uint8_t *buffer = (uint8_t *)calloc(task_mem, sizeof(uint8_t));
+    // Memory Variables
+    int task_size = total_size / size;
+    int remainder = total_size % size;
+    task_size += (rank < remainder) ? 1 : 0; // Distribute the remainder among the first processes
 
+    // Compute the index range assigned to each process
+    int start_idx = rank * task_size;
+    int end_idx = start_idx + task_size;
 
-    // Compute Mandelbrot set for assigned rows
-    puts("Computing Mandelbrot set...");
-    mandelbrot_set(buffer, start_row, end_row);
+    // Allocate memory for the image in each process
+    puts("Allocating memory for the buffer");
+    uint8_t *buffer = (uint8_t *)calloc(task_size, sizeof(uint8_t));
 
-    uint8_t *final_image = NULL;
-    // Gather results from all processes
-    if (rank == 0) {    
-        // This is executed by the root process
-        puts("Gathering results...");
+    // Generate the Mandelbrot set
+    puts("Generating the Mandelbrot set");
+    const double dx = (X_MAX - X_MIN) / WIDTH;
+    const double dy = (Y_MAX - Y_MIN) / HEIGHT;
+    mandelbrot_set(buffer, start_idx, end_idx, dx, dy);
 
-        final_image = (uint8_t *)calloc(WIDTH * HEIGHT, sizeof(uint8_t));
-        
-        if (final_image == NULL) {
-            fprintf(stderr, "Memory allocation failed for the final image\n");
-            MPI_Abort(MPI_COMM_WORLD, 1);
-        }
-    }
-
-    int *recvcounts = (int *)malloc(size * sizeof(int));
-    int *displs = (int *)malloc(size * sizeof(int));
+    // Compute the recvcounts and displs arrays for MPI_Gatherv
+    puts("Computing the recvcounts and displs arrays");
+    int *recvcounts = (int *)calloc(size, sizeof(int));
+    int *displs     = (int *)calloc(size, sizeof(int));
     int sum = 0;
-    for (int i = 0; i < size; i++) {
-        recvcounts[i] = (total_size / size) + (i < (total_size % size) ? 1 : 0);
+    for (int i = 0; i < size; ++i) {
+        recvcounts[i] = task_size;
         displs[i] = sum;
         sum += recvcounts[i];
     }
 
-    // Gather the results
-    MPI_Gatherv(buffer, task_mem, MPI_UNSIGNED_CHAR, final_image, recvcounts, displs, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
-    
 
-    // Free the memory allocated for the task
-    free(buffer);
+    // Gather the image data from all processes
+    puts("Allocating memory for the image");
+    uint8_t *image = NULL;
+    if (rank == 0) {
+        image = (uint8_t *)calloc(total_size, sizeof(uint8_t));
+    }
 
+    // Gather the image data from all processes
+    puts("Gathering the image data from all processes");
+    MPI_Gatherv(buffer, task_size, MPI_UNSIGNED_CHAR, image, recvcounts, displs, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
+    // Free the memory allocated for the image buffer
+    free_image(buffer);
+    // Free the memory allocated for the sendcounts and displs arrays
+    free(recvcounts);
+    free(displs);
+
+    // Save the image to a PGM file
+    if (rank == 0) {
+        save_image("mandelbrot.pgm", image, WIDTH, HEIGHT);
+    }
+
+    // Free the memory allocated for the image
+    free_image(image);
 
     // Finalize MPI
     MPI_Finalize();
 
-
-    // Save the image to a file
-    puts("Saving image...");
-    if (rank == 0) {
-        save_image("mandelbrot.pgm", final_image, WIDTH, HEIGHT);
-        free(final_image);
-    }
-
-    // Free the image memory
-    // puts("Freeing memory...");
-    // free(buffer);
 
     return 0;
 }

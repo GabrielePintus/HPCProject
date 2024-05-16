@@ -41,7 +41,6 @@ typedef struct {
 int mandelbrot(const Complex c) {
     int n = 0;
     Complex z = {0, 0};
-    // while (n < MAX_ITER && (z.x * z.x + z.y * z.y) < 4) {
     while ((z.x * z.x + z.y * z.y) < 4 && n < MAX_ITER) {
         double temp = z.x * z.x - z.y * z.y + c.x;
         z.y = 2 * z.x * z.y + c.y;
@@ -60,33 +59,13 @@ void mandelbrot_set(uint8_t *image) {
     double dx = (X_MAX - X_MIN) / WIDTH;
     double dy = (Y_MAX - Y_MIN) / HEIGHT;
 
-    // int num_threads = omp_get_num_threads();
-    // int block_size = HEIGHT / num_threads;
-    // int start_row = block_size * omp_get_thread_num();
-    // int end_row = start_row + block_size;
-
-    // #pragma omp parallel for collapse(2)
     const int total_size = WIDTH * HEIGHT;
-    // #pragma omp parallel for schedule(dynamic, CHUNK_SIZE) collapse(2)
-    // for (int i = 0; i < WIDTH; i++) {
-    // // for (int i = start_row; i < end_row; i++) {
-    //     for (int j = 0; j < HEIGHT; j++) {
-    //     // for (int j = 0; j < WIDTH; j++) {
-    //         Complex c = {X_MIN + i * dx, Y_MIN + j * dy};
-    //         int iter = mandelbrot(c);
-    //         image[i * HEIGHT + j] = (iter == MAX_ITER) ? 0 : iter;
-    //         // image[i * HEIGHT + j] = (iter == MAX_ITER) ? 0 : (256 * iter) / MAX_ITER;
-    //         // image[i * WIDTH + j] = (iter == MAX_ITER) ? 0 : (256 * iter) / MAX_ITER;
-    //     }
-    // }
 
     #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
     for (int i = 0; i < total_size; ++i) {
         // get row and col
-        int x = i / HEIGHT;
-        // int x = i >> WIDTH_EXP; 
-        int y = i % HEIGHT;
-        // int y = i & (HEIGHT-1); 
+        int x = i / HEIGHT; // int x = i >> WIDTH_EXP; 
+        int y = i % HEIGHT; // int y = i & (HEIGHT-1); 
 
         // get complex point
         Complex c = {X_MIN + x * dx, Y_MIN + y * dy};
@@ -99,9 +78,6 @@ void mandelbrot_set(uint8_t *image) {
         image[i] = iter;
     }
 }
-
-
-
 
 
 /**
@@ -187,7 +163,7 @@ int main()
 
     // Save the image to a PGM file
     save_image("mandelbrot.pgm", image, WIDTH, HEIGHT);
-    save_image_as_text("mandelbrot.txt", image, WIDTH, HEIGHT);
+    // save_image_as_text("mandelbrot.txt", image, WIDTH, HEIGHT);
 
     // Free the memory allocated for the image
     free_image(image);
