@@ -8,8 +8,8 @@
 
 
 // Mandelbrot set parameters
-#define WIDTH 2048
-#define HEIGHT 2048
+#define WIDTH 256
+#define HEIGHT 512
 
 #define MAX_ITER 65535
 
@@ -20,7 +20,7 @@
 
 
 // OpenMP parameters
-#define CHUNK_SIZE 1  // cache miss rate 0.6
+#define CHUNK_SIZE 4  // cache miss rate 0.6
 
 
 
@@ -63,6 +63,7 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
     const double dy = (Y_MAX - Y_MIN) / HEIGHT;
     const int task_size = end_idx - start_idx;
 
+
     #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
     for (int i = 0; i < task_size; ++i) {
         // get x and y coordinates
@@ -74,8 +75,8 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
         Complex c = {X_MIN + x * dx, Y_MIN + y * dy};
         
         // compute mandelbrot set in the point
-        int iter = mandelbrot(c);
-        iter = iter % MAX_ITER;
+        int iter = mandelbrot(c) % MAX_ITER;
+        // iter = iter % MAX_ITER;
         
         // store the value
         image[i] = iter;
