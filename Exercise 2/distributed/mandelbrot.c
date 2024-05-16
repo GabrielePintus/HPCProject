@@ -8,8 +8,8 @@
 
 
 // Mandelbrot set parameters
-#define WIDTH 512
-#define HEIGHT 512
+#define WIDTH 2048
+#define HEIGHT 2048
 
 #define MAX_ITER 65535
 
@@ -57,8 +57,10 @@ int mandelbrot(const Complex c) {
  *
  * @param image A pointer to the image data.
  */
-void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx, const double dx, const double dy)
+void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
 {
+    const double dx = (X_MAX - X_MIN) / WIDTH;
+    const double dy = (Y_MAX - Y_MIN) / HEIGHT;
     const int task_size = end_idx - start_idx;
 
     #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
@@ -169,9 +171,7 @@ int main(int argc, char *argv[])
 
     // Generate the Mandelbrot set
     puts("Generating the Mandelbrot set");
-    const double dx = (X_MAX - X_MIN) / WIDTH;
-    const double dy = (Y_MAX - Y_MIN) / HEIGHT;
-    mandelbrot_set(buffer, start_idx, end_idx, dx, dy);
+    mandelbrot_set(buffer, start_idx, end_idx);
 
     // Compute the recvcounts and displs arrays for MPI_Gatherv
     puts("Computing the recvcounts and displs arrays");
