@@ -5,10 +5,12 @@
 #include <omp.h>
 #include <mpi.h>
 #include <string.h>
+#include <sys/queue.h>
+#include <time.h>
 
 
 // Mandelbrot set parameters
-#define WIDTH 256
+#define WIDTH 1024
 #define HEIGHT 512
 
 #define MAX_ITER 65535
@@ -20,10 +22,20 @@
 
 
 // OpenMP parameters
-#define CHUNK_SIZE 4  // cache miss rate 0.6
+#define OMP_CHUNK_SIZE 4  // cache miss rate 0.6
+#define OMP_NUM_THREADS 2
+
+// MPI parameters
+#define MPI_ROOT_PROCESS 0
+#define MPI_CHUNK_SIZE 131072
+#define TAG 0
+#define MPI_STOP_TAG 1
 
 
-
+/**
+ * @brief Buffer type.
+*/
+typedef uint8_t buffer_t;
 
 /**
  * @brief A complex number.
@@ -32,6 +44,29 @@ typedef struct {
     double x;
     double y;
 } Complex;
+
+/**
+ *  @brief Work item
+ */
+typedef struct WorkItem{
+    int start_idx;
+    int end_idx;
+    TAILQ_ENTRY(WorkItem) entries;
+} WorkItem;
+
+/**
+ *  @brief Work queue
+*/
+typedef struct WorkQueue WorkQueue;
+
+
+
+/**
+ * @brief Queue definition.
+ */
+TAILQ_HEAD(WorkQueue, WorkItem);
+
+
 
 
 /**
@@ -62,7 +97,7 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
     const double dx = (X_MAX - X_MIN) / WIDTH;
     const double dy = (Y_MAX - Y_MIN) / HEIGHT;
 
-    #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNK_SIZE)
     for (int i = start_idx; i < end_idx; ++i) {
         // get x and y coordinates
         const int x = i % WIDTH;
@@ -78,35 +113,6 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
         // store the value
         image[i - start_idx] = iter;
     }
-}
-
-
-/**
- * @brief Allocate memory for the image.
- *
- * @param width The width of the image.
- * @param height The height of the image.
- * @return A pointer to the image data.
- */
-// uint8_t* allocate_image(const int width, const int height)
-// {
-//     uint8_t *image = (uint8_t *)calloc(width * height, sizeof(uint8_t));
-//     return image;
-// }
-uint8_t* allocate_image(const int size)
-{
-    uint8_t *image = (uint8_t *)calloc(size, sizeof(uint8_t));
-    return image;
-}
-
-/**
- * @brief Free the memory allocated for the image.
- *
- * @param image A pointer to the image data.
- */
-void free_image(uint8_t *image)
-{
-    free(image);
 }
 
 /**
@@ -134,13 +140,72 @@ void save_image(const char *filename, const uint8_t *image, const int width, con
 
 
 
+
+int distribution_loop(uint8_t *processes_status, const int size, WorkQueue *work_queue){
+    if (TAILQ_EMPTY(work_queue)) {
+        // Send stop signal to ended processes
+        // Notice that the root process is not included
+        for (int i = 1; i < size; ++i) {
+            if (processes_status[i] == 1) {
+                printf("Sending stop signal to process %d\n", i);
+            }
+        }
+    }else{
+        // Send work items to free processes
+        // Notice that the root process is not included
+        for (int i = 1; i < size; ++i) {
+            if (processes_status[i] == 0) {
+                // Get the first work item from the queue
+                WorkItem *work_item = TAILQ_FIRST(work_queue);
+                TAILQ_REMOVE(work_queue, work_item, entries);
+
+                // Send the work item to the process
+                MPI_Send(work_item, sizeof(WorkItem), MPI_BYTE, i, TAG, MPI_COMM_WORLD);
+
+                // Free the memory allocated for the work item
+                free(work_item);
+
+                // Set the process to busy
+                processes_status[i] = 1;
+            }
+        }
+    }
+
+    // Else 
+}
+
+
+void handle_work_item(const int rank, const int size, WorkQueue *work_queue, int8_t *processes_status){
+    // Receive the work item
+    WorkItem* work_item = (WorkItem *)malloc(sizeof(WorkItem));
+    MPI_Recv(work_item, sizeof(WorkItem), MPI_BYTE, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD, &status);
+
+    printf("Process %d received work item: %d - %d\n", rank, work_item.start_idx, work_item.end_idx);
+
+    // Check if stop signal
+    if(work_item->start_idx == -1 && work_item->end_idx == -1){
+        // Stop signal
+        puts("Received stop signal");
+        return;
+    }
+
+    // Process the work item
+    mandelbrot_set(buffer, work_item->start_idx, work_item->end_idx);
+
+    // Send the result back to the root process
+    MPI_Send(work_item, sizeof(WorkItem), MPI_BYTE, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD);
+
+    // Set the process to free
+    processes_status[rank] = 0;
+}
+
+
+
 int main(int argc, char *argv[])
 {
-    #ifdef _OPENMP
-    #define NUM_THREADS 2
-    omp_set_num_threads(NUM_THREADS);
-    printf("Number of threads: %d\n", NUM_THREADS);
-    #endif
+    // Set the number of threads for OpenMP
+    omp_set_num_threads(OMP_NUM_THREADS);
+    printf("Number of threads: %d\n", OMP_NUM_THREADS);
 
     // First thing to do is to calculate the total size of the image
     const int total_size = WIDTH * HEIGHT;
@@ -154,71 +219,93 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     printf("Rank: %d, Size: %d\n", rank, size);
 
-    // Memory Variables
-    int task_size = total_size / size;
-    int remainder = total_size % size;
-    task_size += (rank < remainder) ? 1 : 0; // Distribute the remainder among the first processes
+    // Array that track the status of the processes
+    // 0 - free
+    // 1 - busy
+    int8_t *processes_status = (int *)calloc(size, sizeof(int8_t));
 
-    // Compute the index range assigned to each process
-    int start_idx = rank * task_size;
-    int end_idx = start_idx + task_size;
-
-    // Allocate memory for the image in each process
-    puts("Allocating memory for the buffer");
-    uint8_t *buffer = NULL;
-    if (rank == 0) {
-        buffer = (uint8_t *)calloc(total_size, sizeof(uint8_t));
-    } else {
-        buffer = (uint8_t *)calloc(task_size, sizeof(uint8_t));
-    }
-    printf("Rank: %d, buffer size: %lu bytes\n", rank, sizeof(buffer));
-
-    // Generate the Mandelbrot set
-    puts("Generating the Mandelbrot set");
-    mandelbrot_set(buffer, start_idx, end_idx);
-
-    // Compute the recvcounts and displs arrays for MPI_Gatherv
-    puts("Computing the recvcounts and displs arrays");
-    int *recvcounts = (int *)calloc(size, sizeof(int));
-    int *displs     = (int *)calloc(size, sizeof(int));
-    int sum = 0;
-    for (int i = 0; i < size; ++i) {
-        recvcounts[i] = task_size;
-        displs[i] = sum;
-        sum += recvcounts[i];
-    }
+    // Every process will have a buffer to receive the data
+    buffer_t *buffer = (buffer_t *)calloc(MPI_CHUNK_SIZE, sizeof(buffer_t));
+    
 
 
-    // Gather the image data from all processes
-    puts("Allocating memory for the image");
-    // uint8_t *image = NULL;
-    // if (rank == 0) {
-    //     image = (uint8_t *)calloc(total_size, sizeof(uint8_t));
-    // }
+    // Allocate memory for the image buffer in the root process
     uint8_t *image = NULL;
-    if (rank == 0) {
-        image = buffer;
+    if (rank == MPI_ROOT_PROCESS) {
+        image = (uint8_t *)malloc(total_size * sizeof(uint8_t));
+        if (image == NULL) {
+            fprintf(stderr, "Error allocating memory for the image\n");
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
     }
 
-    // Gather the image data from all processes
-    puts("Gathering the image data from all processes");
-    MPI_Gatherv(buffer, task_size, MPI_UNSIGNED_CHAR, image, recvcounts, displs, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
-    // Free the memory allocated for the image buffer
-    free_image(buffer);
-    // Free the memory allocated for the sendcounts and displs arrays
-    free(recvcounts);
-    free(displs);
+    // Build the work queue
+    WorkQueue work_queue;
+    if (rank == MPI_ROOT_PROCESS) {
+        // Initialize the work queue
+        TAILQ_INIT(&work_queue);
 
-    // Save the image to a PGM file
-    if (rank == 0) {
+        // Add work items to the queue
+        for (int i = 0; i < total_size; i += MPI_CHUNK_SIZE) {
+            // Allocate memory for the work item
+            WorkItem *work_item = (WorkItem *)malloc(sizeof(WorkItem));
+            
+            // Set the start and end indices for the work item
+            work_item->start_idx = i;
+            work_item->end_idx = work_item->start_idx + MPI_CHUNK_SIZE;
+
+            // Insert the work item into the queue
+            TAILQ_INSERT_TAIL(&work_queue, work_item, entries);
+        }
+    }
+
+    /**
+     *  Here we start distributing the work items to the processes with a 
+     *  master-slave approach. The root process will distribute the work items
+     *  to the other processes with a simple round-robin strategy.
+    */
+    int completed_processes = 0;
+    if (rank == MPI_ROOT_PROCESS) {
+        while (completed_processes < size - 1) {
+            distribution_loop(processes_status, size, &work_queue);
+            
+            // Receive the result from the processes
+            MPI_Status status;
+            WorkItem *work_item = (WorkItem *)malloc(sizeof(WorkItem));
+            MPI_Recv(work_item, sizeof(WorkItem), MPI_BYTE, MPI_ANY_SOURCE, TAG, MPI_COMM_WORLD, &status);
+
+            // Set the process to free
+            processes_status[status.MPI_SOURCE] = 0;
+
+            // Check if the process has finished
+            if (work_item->start_idx == -1 && work_item->end_idx == -1) {
+                ++completed_processes;
+            }
+
+            // Free the memory allocated for the work item
+            free(work_item);
+
+            
+        }
+    }
+
+    
+
+
+    // Free the memory allocated for the image buffer in each process
+    puts("Freeing the memory allocated for the buffer");
+    free(buffer);
+    
+    // The root process save the final image    
+    if (rank == MPI_ROOT_PROCESS) {
+        puts("Saving the image to a PGM file");
         save_image("mandelbrot.pgm", image, WIDTH, HEIGHT);
+        free(image);
     }
-
-    // Free the memory allocated for the image
-    // free_image(image);
-
+    
     // Finalize MPI
+    puts("Finalizing MPI");
     MPI_Finalize();
 
 

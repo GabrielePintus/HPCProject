@@ -9,8 +9,8 @@
 
 
 // Mandelbrot set parameters
-#define WIDTH 4096
-#define HEIGHT 4096
+#define WIDTH 1024
+#define HEIGHT 512
 
 #define MAX_ITER 65535
 
@@ -21,8 +21,8 @@
 
 
 // OpenMP parameters
-#define CHUNK_SIZE 4  // cache miss rate 0.6
-#define NUM_THREADS 12
+#define OMP_CHUNK_SIZE 4
+#define OMP_NUM_THREADS 12
 
 
 
@@ -64,7 +64,7 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
     const double dx = (X_MAX - X_MIN) / WIDTH;
     const double dy = (Y_MAX - Y_MIN) / HEIGHT;
 
-    #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
+    #pragma omp parallel for schedule(dynamic, OMP_CHUNK_SIZE)
     for (int i = start_idx; i < end_idx; ++i) {
         // get x and y coordinates
         const int x = i % WIDTH;
@@ -107,8 +107,8 @@ void save_image(const char *filename, const uint8_t *image, const int width, con
 int main(int argc, char *argv[])
 {
     // Set the number of threads for OpenMP
-    omp_set_num_threads(NUM_THREADS);
-    printf("Number of threads: %d\n", NUM_THREADS);
+    omp_set_num_threads(OMP_NUM_THREADS);
+    printf("Number of threads: %d\n", OMP_NUM_THREADS);
 
     // First thing to do is to calculate the total size of the image
     const int total_size = WIDTH * HEIGHT;

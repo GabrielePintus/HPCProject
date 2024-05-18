@@ -1,1 +1,1 @@
-mpirun -np 3 perf stat -e cache-references,cache-misses ./mandelbrot
+mpirun -np 4 perf stat -e cache-references,cache-misses ./mandelbrot
