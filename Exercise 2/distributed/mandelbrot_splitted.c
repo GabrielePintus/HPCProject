@@ -5,12 +5,11 @@
 #include <omp.h>
 #include <mpi.h>
 #include <string.h>
-#include <time.h>
 
 
 // Mandelbrot set parameters
-#define WIDTH 4096
-#define HEIGHT 4096
+#define WIDTH 256
+#define HEIGHT 512
 
 #define MAX_ITER 65535
 
@@ -22,7 +21,6 @@
 
 // OpenMP parameters
 #define CHUNK_SIZE 4  // cache miss rate 0.6
-#define NUM_THREADS 12
 
 
 
@@ -82,6 +80,35 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
     }
 }
 
+
+/**
+ * @brief Allocate memory for the image.
+ *
+ * @param width The width of the image.
+ * @param height The height of the image.
+ * @return A pointer to the image data.
+ */
+// uint8_t* allocate_image(const int width, const int height)
+// {
+//     uint8_t *image = (uint8_t *)calloc(width * height, sizeof(uint8_t));
+//     return image;
+// }
+uint8_t* allocate_image(const int size)
+{
+    uint8_t *image = (uint8_t *)calloc(size, sizeof(uint8_t));
+    return image;
+}
+
+/**
+ * @brief Free the memory allocated for the image.
+ *
+ * @param image A pointer to the image data.
+ */
+void free_image(uint8_t *image)
+{
+    free(image);
+}
+
 /**
  * @brief Save the image data to a PGM file using 1D array.
  *
@@ -104,11 +131,16 @@ void save_image(const char *filename, const uint8_t *image, const int width, con
 }
 
 
+
+
+
 int main(int argc, char *argv[])
 {
-    // Set the number of threads for OpenMP
+    #ifdef _OPENMP
+    #define NUM_THREADS 2
     omp_set_num_threads(NUM_THREADS);
     printf("Number of threads: %d\n", NUM_THREADS);
+    #endif
 
     // First thing to do is to calculate the total size of the image
     const int total_size = WIDTH * HEIGHT;
@@ -133,17 +165,17 @@ int main(int argc, char *argv[])
 
     // Allocate memory for the image in each process
     puts("Allocating memory for the buffer");
-    uint8_t *buffer = (uint8_t *)calloc(task_size, sizeof(uint8_t));
+    uint8_t *buffer = NULL;
+    if (rank == 0) {
+        buffer = (uint8_t *)calloc(total_size, sizeof(uint8_t));
+    } else {
+        buffer = (uint8_t *)calloc(task_size, sizeof(uint8_t));
+    }
+    printf("Rank: %d, buffer size: %lu bytes\n", rank, sizeof(buffer));
 
     // Generate the Mandelbrot set
     puts("Generating the Mandelbrot set");
-    
-    clock_t t0 = clock();
     mandelbrot_set(buffer, start_idx, end_idx);
-    clock_t t1 = clock();
-
-    double time_spent = (double)(t1 - t0) / CLOCKS_PER_SEC;
-    printf("Task %d took %f seconds\n", rank, time_spent);
 
     // Compute the recvcounts and displs arrays for MPI_Gatherv
     puts("Computing the recvcounts and displs arrays");
@@ -156,11 +188,16 @@ int main(int argc, char *argv[])
         sum += recvcounts[i];
     }
 
+
     // Gather the image data from all processes
     puts("Allocating memory for the image");
+    // uint8_t *image = NULL;
+    // if (rank == 0) {
+    //     image = (uint8_t *)calloc(total_size, sizeof(uint8_t));
+    // }
     uint8_t *image = NULL;
     if (rank == 0) {
-        image = (uint8_t *)calloc(total_size, sizeof(uint8_t));
+        image = buffer;
     }
 
     // Gather the image data from all processes
@@ -168,11 +205,10 @@ int main(int argc, char *argv[])
     MPI_Gatherv(buffer, task_size, MPI_UNSIGNED_CHAR, image, recvcounts, displs, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
     // Free the memory allocated for the image buffer
-    free(buffer);
+    free_image(buffer);
     // Free the memory allocated for the sendcounts and displs arrays
     free(recvcounts);
     free(displs);
-    
 
     // Save the image to a PGM file
     if (rank == 0) {
@@ -180,9 +216,7 @@ int main(int argc, char *argv[])
     }
 
     // Free the memory allocated for the image
-    if (rank == 0) {
-        free(image);
-    }
+    // free_image(image);
 
     // Finalize MPI
     MPI_Finalize();
