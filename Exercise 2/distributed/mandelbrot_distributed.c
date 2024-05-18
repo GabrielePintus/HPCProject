@@ -204,7 +204,8 @@ int main(int argc, char *argv[])
             if (flag) {
                 // Receive the data
                 int source = status.MPI_SOURCE;
-                int start_idx = status.MPI_TAG;
+                // int start_idx = status.MPI_TAG;
+                int start_idx = status.MPI_TAG * MPI_CHUNK_SIZE; //PROVA
                 MPI_Recv(
                     image + start_idx, // Here we are using the pointer arithmetic to get the correct position in the image buffer
                     MPI_CHUNK_SIZE,
@@ -257,7 +258,9 @@ int main(int argc, char *argv[])
             mandelbrot_set(buffer, start_idx, end_idx);
 
             // Send the data back to the root process
-            MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_UNSIGNED_CHAR, MPI_ROOT_PROCESS, start_idx, MPI_COMM_WORLD);
+            const int new_tag = start_idx / MPI_CHUNK_SIZE; //PROVA
+            // MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_UNSIGNED_CHAR, MPI_ROOT_PROCESS, start_idx, MPI_COMM_WORLD);
+            MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_UNSIGNED_CHAR, MPI_ROOT_PROCESS, new_tag, MPI_COMM_WORLD);
             free(buffer);
         }
     }
