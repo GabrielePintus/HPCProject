@@ -266,6 +266,11 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Barrier to synchronize all processes
+    MPI_Barrier(MPI_COMM_WORLD);
+    // Overall computation time
+    double before_entire_computation = MPI_Wtime();
+
 
     // Main loop
     if (rank == MPI_ROOT_PROCESS) {
@@ -367,7 +372,11 @@ int main(int argc, char *argv[])
         }
     }
     
-    
+    // Overall computation time
+    double after_entire_computation = MPI_Wtime();
+    double entire_computation_time = after_entire_computation - before_entire_computation;
+    printf("Process %d: Entire computation time: %f\n", rank, entire_computation_time);
+
 
     // Save the image to a PGM file
     if (rank == MPI_ROOT_PROCESS) {
