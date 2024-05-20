@@ -26,15 +26,15 @@
 
 
 // Mandelbrot set parameters
-#define WIDTH 512
-#define HEIGHT 512
+// #define WIDTH 1024
+// #define HEIGHT 512
 
-#define MAX_ITER 255
+// #define MAX_ITER 16384
 
-#define X_MIN -2.0
-#define X_MAX 2.0
-#define Y_MIN -2.0
-#define Y_MAX 2.0
+// #define X_MIN -2.0
+// #define X_MAX 2.0
+// #define Y_MIN -2.0
+// #define Y_MAX 2.0
 
 
 // OpenMP parameters
@@ -44,11 +44,16 @@
 // MPI parameters
 #define MPI_ROOT_PROCESS 0
 // #define MPI_CHUNK_SIZE 131072
-#define MPI_CHUNK_SIZE 65536
+#define MPI_CHUNK_SIZE 4096
 
 #define TAG 0
 #define MPI_STARTIDX_TAG 1
+#define MPI_ENDIDX_TAG 2
 
+
+
+// typedef uint8_t image_t;
+typedef uint16_t image_t;
 
 
 // Queue structures
@@ -56,8 +61,8 @@
  *  @brief Work item
  */
 typedef struct WorkItem{
-    int start_idx;
-    int end_idx;
+    uint32_t start_idx;
+    uint32_t end_idx;
     TAILQ_ENTRY(WorkItem) entries;
 } WorkItem;
 
@@ -88,10 +93,10 @@ typedef struct {
  * @param c A complex number.
  * @return The number of iterations before the sequence escapes.
  */
-int mandelbrot(const Complex c) {
-    int n = 0;
+int mandelbrot(const Complex c, const uint32_t max_iter){
+    uint32_t n = 0;
     Complex z = {0, 0};
-    while ((z.x * z.x + z.y * z.y) < 4 && n < MAX_ITER) {
+    while ((z.x * z.x + z.y * z.y) < 4 && n < max_iter) {
         double temp = z.x * z.x - z.y * z.y + c.x;
         z.y = 2 * z.x * z.y + c.y;
         z.x = temp;
@@ -105,22 +110,32 @@ int mandelbrot(const Complex c) {
  *
  * @param image A pointer to the image data.
  */
-void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
-{
-    const double dx = (X_MAX - X_MIN) / WIDTH;
-    const double dy = (Y_MAX - Y_MIN) / HEIGHT;
+void mandelbrot_set(
+    image_t *image,
+    const int start_idx,
+    const int end_idx,
+    const uint32_t max_iter,
+    const uint32_t width,
+    const uint32_t height,
+    const double x_min,
+    const double x_max,
+    const double y_min,
+    const double y_max
+){
+    const double dx = (x_max - x_min) / width;
+    const double dy = (y_max - y_min) / height;
 
     #pragma omp parallel for schedule(dynamic, OMP_CHUNK_SIZE)
     for (int i = start_idx; i < end_idx; ++i) {
         // get x and y coordinates
-        const int x = i % WIDTH;
-        const int y = i / WIDTH;
+        const int x = i % width;
+        const int y = i / width;
 
         // get complex point
-        Complex c = {X_MIN + x * dx, Y_MIN + y * dy};
+        Complex c = {x_min + x * dx, y_min + y * dy};
         
         // compute mandelbrot set in the point
-        int iter = mandelbrot(c) % MAX_ITER;
+        int iter = mandelbrot(c, max_iter) % max_iter;
         
         // store the value
         image[i - start_idx] = iter;
@@ -135,7 +150,7 @@ void mandelbrot_set(uint8_t *image, const int start_idx, const int end_idx)
  * @param width The width of the image.
  * @param height The height of the image.
  */
-void save_image(const char *filename, const uint8_t *image, const int width, const int height)
+void save_image(const char *filename, const image_t *image, const int width, const int height)
 {
     FILE *fp;
     fp = fopen(filename, "wb");
@@ -143,51 +158,104 @@ void save_image(const char *filename, const uint8_t *image, const int width, con
         fprintf(stderr, "Error opening file\n");
         return;
     }
-    fprintf(fp, "P5\n%d %d\n255\n", width, height);
-    fwrite(image, sizeof(uint8_t), width * height, fp);
+    const uint8_t n_bits = 8 * sizeof(image_t);
+    const uint16_t max_value = (1 << n_bits) - 1;
+    fprintf(fp, "P5\n%d %d\n%d\n", width, height, max_value);
+    fwrite(image, sizeof(image_t), width * height, fp);
     fclose(fp);
 }
 
-
+/**
+ * @brief Main function.
+ * 
+ * @param argc The number of command-line arguments.
+ * @param argv The command-line arguments.
+ * @return The exit status.
+*/
 int main(int argc, char *argv[])
 {
+    /**
+     * Parse the command-line arguments.
+     * 1 - Width of the image
+     * 2 - Height of the image
+     * 3 - X-axis lower bound
+     * 4 - Y-axis lower bound
+     * 5 - X-axis upper bound
+     * 6 - Y-axis upper bound
+     * 7 - Maximum number of iterations
+    */
+    uint32_t WIDTH, HEIGHT, MAX_ITER;
+    double X_MIN, Y_MIN, X_MAX, Y_MAX;
+    if (argc != 8) {
+        fprintf(stderr, "Usage: %s <width> <height> <x_min> <y_min> <x_max> <y_max> <max_iter>\n", argv[0]);
+        return 1;
+    } else {
+        WIDTH = atoi(argv[1]);
+        HEIGHT = atoi(argv[2]);
+        X_MIN = atof(argv[3]);
+        Y_MIN = atof(argv[4]);
+        X_MAX = atof(argv[5]);
+        Y_MAX = atof(argv[6]);
+        MAX_ITER = atoi(argv[7]);
+    }
+
+
+
     // Set the number of threads for OpenMP
     omp_set_num_threads(OMP_NUM_THREADS);
-    printf("Number of threads: %d\n", OMP_NUM_THREADS);
+    
 
     // First thing to do is to calculate the total size of the image
-    const int total_size = WIDTH * HEIGHT;
+    const uint32_t total_size = WIDTH * HEIGHT;
 
     // Initialize MPI
-    int rank, size;
+    int32_t rank, size;
     MPI_Init(&argc, &argv);
+
+    MPI_Datatype MPI_IMAGE_T;
+    if (sizeof(image_t) == 1) {
+        MPI_Type_contiguous(1, MPI_UINT8_T, &MPI_IMAGE_T);
+    } else if (sizeof(image_t) == 2) {
+        MPI_Type_contiguous(1, MPI_UINT16_T, &MPI_IMAGE_T); 
+    }
+    MPI_Type_commit(&MPI_IMAGE_T);
 
     // Get the rank and the number of processes in the MPI_COMM_WORLD communicator
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    printf("Rank: %d, Size: %d\n", rank, size);
+
+
+    // Print args
+    if (rank == MPI_ROOT_PROCESS) {
+        printf("Number of threads: %d\n", OMP_NUM_THREADS);
+        printf("Rank: %d, Size: %d\n", rank, size);
+        printf("Width: %d, Height: %d, Max Iter: %d\n", WIDTH, HEIGHT, MAX_ITER);
+        printf("X_MIN: %f, Y_MIN: %f, X_MAX: %f, Y_MAX: %f\n", X_MIN, Y_MIN, X_MAX, Y_MAX);
+    }
+
 
     // Memory Variables
-    const int n_chunks = (total_size + MPI_CHUNK_SIZE - 1) / MPI_CHUNK_SIZE;
-    int completed_chunks = 0;
+    const uint32_t n_chunks = (total_size + MPI_CHUNK_SIZE - 1) / MPI_CHUNK_SIZE;
+    uint32_t completed_chunks = 0;
+    uint32_t available_chunks = n_chunks;
     uint8_t* processes_status = NULL;
+    image_t* image = NULL;
     WorkQueue* work_queue = NULL;
-    uint8_t* image = NULL;
+    
 
 
     // Initialize memory for the processes status and the image
     if (rank == MPI_ROOT_PROCESS) {
         processes_status = (uint8_t *)calloc(size, sizeof(uint8_t));
-        image = (uint8_t *)malloc(total_size * sizeof(uint8_t));
+        image = (image_t *)malloc(total_size * sizeof(image_t));
     }
 
     // Create the work queue
     if (rank == MPI_ROOT_PROCESS) {
         work_queue = (WorkQueue *)malloc(sizeof(WorkQueue));
         TAILQ_INIT(work_queue);
-
         // Add work items to the queue
-        for (int i = 0; i < n_chunks; ++i) {
+        for (uint32_t i = 0; i < n_chunks; ++i) {
             WorkItem *item = (WorkItem *)malloc(sizeof(WorkItem));
             item->start_idx = i * MPI_CHUNK_SIZE;
             item->end_idx = (i + 1) * MPI_CHUNK_SIZE;
@@ -204,20 +272,21 @@ int main(int argc, char *argv[])
         while (completed_chunks < n_chunks) {
             // Send work to idle processes
             // Notice that we start from 1 because the root process is not a worker
-            for (int i = 1; i < size; i++) {
+            for (uint16_t i = 1; i < size; ++i) {
                 if (processes_status[i] == 1){
                     // Check for incoming messages
                     MPI_Status status;
-                    int flag;
+                    int32_t flag;
                     MPI_Iprobe(i, MPI_STARTIDX_TAG, MPI_COMM_WORLD, &flag, &status);
                     if (flag) {
-                        int start_idx;
+                        uint32_t start_idx, end_idx;
                         // Receive the data
                         MPI_Recv(&start_idx, 1, MPI_INT, i, MPI_STARTIDX_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Recv(&end_idx, 1, MPI_INT, i, MPI_ENDIDX_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                         MPI_Recv(
                             image + start_idx, // Here we are using the pointer arithmetic to get the correct position in the image buffer
-                            MPI_CHUNK_SIZE,
-                            MPI_UNSIGNED_CHAR,
+                            end_idx - start_idx,
+                            MPI_IMAGE_T,
                             i,
                             TAG,
                             MPI_COMM_WORLD,
@@ -235,6 +304,7 @@ int main(int argc, char *argv[])
                         MPI_Send(&item->start_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
                         MPI_Send(&item->end_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
 
+                        --available_chunks;
                         processes_status[i] = 1;
                         free(item);
                     }else{
@@ -246,15 +316,23 @@ int main(int argc, char *argv[])
             }
 
             // The master also needs to do some work
-            {
-                WorkItem *item = TAILQ_FIRST(work_queue);
-                if (item != NULL) {
-                    TAILQ_REMOVE(work_queue, item, entries);
-                    mandelbrot_set(image + item->start_idx, item->start_idx, item->end_idx);
-                    free(item);
-                    ++completed_chunks;
-                }
-            }
+            // if (available_chunks > 0)
+            // {
+            //     double before_computation = MPI_Wtime();
+            //     WorkItem *item = TAILQ_FIRST(work_queue);
+            //     image_t *buffer = (image_t *)calloc(MPI_CHUNK_SIZE, item->end_idx - item->start_idx);
+            //     if (item != NULL) {
+            //         TAILQ_REMOVE(work_queue, item, entries);
+            //         mandelbrot_set(buffer, item->start_idx, item->end_idx, MAX_ITER, WIDTH, HEIGHT, X_MIN, X_MAX, Y_MIN, Y_MAX);
+            //         memcpy(image + item->start_idx, buffer, MPI_CHUNK_SIZE * sizeof(image_t));
+            //         free(item);
+            //         ++completed_chunks;
+            //     }
+            //     --available_chunks;
+            //     double after_computation = MPI_Wtime();
+            //     printf("Process %d: Computation time: %f\n", rank, after_computation - before_computation);
+            // }
+            
 
             // Wait 1ms before checking again 
             // nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
@@ -272,14 +350,18 @@ int main(int argc, char *argv[])
             }
 
             // Allocate memory for the buffer
-            uint8_t *buffer = (uint8_t *)calloc(MPI_CHUNK_SIZE, sizeof(uint8_t));
+            image_t *buffer = (image_t *)calloc(end_idx - start_idx, sizeof(image_t));
 
             // Generate the Mandelbrot set
-            mandelbrot_set(buffer, start_idx, end_idx);
+            double before_computation = MPI_Wtime();
+            mandelbrot_set(buffer, start_idx, end_idx, MAX_ITER, WIDTH, HEIGHT, X_MIN, X_MAX, Y_MIN, Y_MAX);
+            double after_computation = MPI_Wtime();
+            printf("Process %d: Computation time: %f\n", rank, after_computation - before_computation);
 
             // Send the data back to the root process
             MPI_Send(&start_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_STARTIDX_TAG, MPI_COMM_WORLD);
-            MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_UNSIGNED_CHAR, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD);
+            MPI_Send(&end_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_ENDIDX_TAG, MPI_COMM_WORLD);
+            MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_IMAGE_T, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD);
             
             free(buffer);
         }
