@@ -1,1 +1,1 @@
-mpirun -np 4 ./mandelbrot
+mpirun -np 3 ./mandelbrot

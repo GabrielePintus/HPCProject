@@ -19,13 +19,14 @@
 #include <stdint.h>
 #include <omp.h>
 #include <mpi.h>
+#include <unistd.h>
 #include <string.h>
 #include <sys/queue.h>
 #include <time.h>
 
 
 // Mandelbrot set parameters
-#define WIDTH 1024
+#define WIDTH 512
 #define HEIGHT 512
 
 #define MAX_ITER 255
@@ -42,7 +43,9 @@
 
 // MPI parameters
 #define MPI_ROOT_PROCESS 0
-#define MPI_CHUNK_SIZE 131072
+// #define MPI_CHUNK_SIZE 131072
+#define MPI_CHUNK_SIZE 65536
+
 #define TAG 0
 #define MPI_STARTIDX_TAG 1
 
@@ -199,38 +202,39 @@ int main(int argc, char *argv[])
     // Main loop
     if (rank == MPI_ROOT_PROCESS) {
         while (completed_chunks < n_chunks) {
-            // Check for incoming messages
-            MPI_Status status;
-            int flag;
-            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-            if (flag) {
-                // Receive the data
-                int source = status.MPI_SOURCE;
-                // int start_idx = status.MPI_TAG;
-                int start_idx;
-                MPI_Recv(&start_idx, 1, MPI_INT, source, MPI_STARTIDX_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                MPI_Recv(
-                    image + start_idx, // Here we are using the pointer arithmetic to get the correct position in the image buffer
-                    MPI_CHUNK_SIZE,
-                    MPI_UNSIGNED_CHAR,
-                    source,
-                    MPI_ANY_TAG,
-                    MPI_COMM_WORLD,
-                    MPI_STATUS_IGNORE
-                );
-                processes_status[source] = 0;
-                completed_chunks++;
-            }
-
             // Send work to idle processes
             // Notice that we start from 1 because the root process is not a worker
-            for (int i = 1; i < size; ++i) {
+            for (int i = 1; i < size; i++) {
+                if (processes_status[i] == 1){
+                    // Check for incoming messages
+                    MPI_Status status;
+                    int flag;
+                    MPI_Iprobe(i, MPI_STARTIDX_TAG, MPI_COMM_WORLD, &flag, &status);
+                    if (flag) {
+                        int start_idx;
+                        // Receive the data
+                        MPI_Recv(&start_idx, 1, MPI_INT, i, MPI_STARTIDX_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Recv(
+                            image + start_idx, // Here we are using the pointer arithmetic to get the correct position in the image buffer
+                            MPI_CHUNK_SIZE,
+                            MPI_UNSIGNED_CHAR,
+                            i,
+                            TAG,
+                            MPI_COMM_WORLD,
+                            MPI_STATUS_IGNORE
+                        );
+                        processes_status[i] = 0;
+                        ++completed_chunks;
+                    }
+                }
                 if (processes_status[i] == 0) {
                     WorkItem *item = TAILQ_FIRST(work_queue);
                     if (item != NULL) {
                         TAILQ_REMOVE(work_queue, item, entries);
+
                         MPI_Send(&item->start_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
                         MPI_Send(&item->end_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
+
                         processes_status[i] = 1;
                         free(item);
                     }else{
@@ -240,6 +244,20 @@ int main(int argc, char *argv[])
                     }
                 }
             }
+
+            // The master also needs to do some work
+            {
+                WorkItem *item = TAILQ_FIRST(work_queue);
+                if (item != NULL) {
+                    TAILQ_REMOVE(work_queue, item, entries);
+                    mandelbrot_set(image + item->start_idx, item->start_idx, item->end_idx);
+                    free(item);
+                    ++completed_chunks;
+                }
+            }
+
+            // Wait 1ms before checking again 
+            // nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
         }
     } else {
         while (1) {
@@ -250,7 +268,6 @@ int main(int argc, char *argv[])
 
             // Check for termination
             if (start_idx == -1 || end_idx == -1) {
-                printf("Process %d finished\n", rank);
                 break;
             }
 
@@ -263,6 +280,7 @@ int main(int argc, char *argv[])
             // Send the data back to the root process
             MPI_Send(&start_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_STARTIDX_TAG, MPI_COMM_WORLD);
             MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_UNSIGNED_CHAR, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD);
+            
             free(buffer);
         }
     }
