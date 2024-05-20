@@ -316,22 +316,22 @@ int main(int argc, char *argv[])
             }
 
             // The master also needs to do some work
-            // if (available_chunks > 0)
-            // {
-            //     double before_computation = MPI_Wtime();
-            //     WorkItem *item = TAILQ_FIRST(work_queue);
-            //     image_t *buffer = (image_t *)calloc(MPI_CHUNK_SIZE, item->end_idx - item->start_idx);
-            //     if (item != NULL) {
-            //         TAILQ_REMOVE(work_queue, item, entries);
-            //         mandelbrot_set(buffer, item->start_idx, item->end_idx, MAX_ITER, WIDTH, HEIGHT, X_MIN, X_MAX, Y_MIN, Y_MAX);
-            //         memcpy(image + item->start_idx, buffer, MPI_CHUNK_SIZE * sizeof(image_t));
-            //         free(item);
-            //         ++completed_chunks;
-            //     }
-            //     --available_chunks;
-            //     double after_computation = MPI_Wtime();
-            //     printf("Process %d: Computation time: %f\n", rank, after_computation - before_computation);
-            // }
+            if (available_chunks > 0)
+            {
+                double before_computation = MPI_Wtime();
+                WorkItem *item = TAILQ_FIRST(work_queue);
+                image_t *buffer = (image_t *)calloc(item->end_idx - item->start_idx, sizeof(image_t));
+                if (item != NULL) {
+                    TAILQ_REMOVE(work_queue, item, entries);
+                    mandelbrot_set(buffer, item->start_idx, item->end_idx, MAX_ITER, WIDTH, HEIGHT, X_MIN, X_MAX, Y_MIN, Y_MAX);
+                    memcpy(image + item->start_idx, buffer, (item->end_idx - item->start_idx) * sizeof(image_t));
+                    free(item);
+                    ++completed_chunks;
+                }
+                --available_chunks;
+                double after_computation = MPI_Wtime();
+                printf("Process %d: Computation time: %f\n", rank, after_computation - before_computation);
+            }
             
 
             // Wait 1ms before checking again 
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
             // Send the data back to the root process
             MPI_Send(&start_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_STARTIDX_TAG, MPI_COMM_WORLD);
             MPI_Send(&end_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_ENDIDX_TAG, MPI_COMM_WORLD);
-            MPI_Send(buffer, MPI_CHUNK_SIZE, MPI_IMAGE_T, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD);
+            MPI_Send(buffer, end_idx-start_idx, MPI_IMAGE_T, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD);
             
             free(buffer);
         }
