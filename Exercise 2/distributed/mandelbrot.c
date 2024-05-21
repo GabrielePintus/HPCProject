@@ -22,7 +22,7 @@
 
 // OpenMP parameters
 #define OMP_CHUNK_SIZE 4
-#define OMP_NUM_THREADS 12
+// #define OMP_NUM_THREADS 12
 
 
 
@@ -107,8 +107,8 @@ void save_image(const char *filename, const uint8_t *image, const int width, con
 int main(int argc, char *argv[])
 {
     // Set the number of threads for OpenMP
-    omp_set_num_threads(OMP_NUM_THREADS);
-    printf("Number of threads: %d\n", OMP_NUM_THREADS);
+    // omp_set_num_threads(OMP_NUM_THREADS);
+    // printf("Number of threads: %d\n", OMP_NUM_THREADS);
 
     // First thing to do is to calculate the total size of the image
     const int total_size = WIDTH * HEIGHT;

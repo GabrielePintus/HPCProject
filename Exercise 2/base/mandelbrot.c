@@ -8,9 +8,7 @@
 
 // Mandelbrot set parameters
 #define WIDTH 2048
-#define WIDTH_EXP 11
 #define HEIGHT 2048
-#define HEIGHT_EXP 11
 #define MAX_ITER 65535
 #define X_MIN -2.0
 #define X_MAX 2.0
@@ -19,7 +17,8 @@
 
 
 // OpenMP parameters
-#define CHUNK_SIZE 1  // cache miss rate 0.6
+#define CHUNK_SIZE 4  // cache miss rate 0.6
+// #define OMP_NUM_THREADS 4
 
 
 
@@ -148,12 +147,8 @@ void save_image_as_text(const char *filename, const uint8_t *image, const int wi
 
 int main()
 {
-    #ifdef _OPENMP
-    #define NUM_THREADS 8
-    omp_set_num_threads(NUM_THREADS);
-    printf("Number of threads: %d\n", NUM_THREADS);
-    #endif
-
+    // Set the number of threads
+    // omp_set_num_threads(OMP_NUM_THREADS);
 
     // Allocate memory for the image
     uint8_t *image = allocate_image(WIDTH, HEIGHT);
@@ -163,7 +158,6 @@ int main()
 
     // Save the image to a PGM file
     save_image("mandelbrot.pgm", image, WIDTH, HEIGHT);
-    // save_image_as_text("mandelbrot.txt", image, WIDTH, HEIGHT);
 
     // Free the memory allocated for the image
     free_image(image);
