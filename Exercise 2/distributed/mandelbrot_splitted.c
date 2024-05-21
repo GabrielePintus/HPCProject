@@ -23,7 +23,7 @@
 
 // OpenMP parameters
 #define OMP_CHUNK_SIZE 4  // cache miss rate 0.6
-#define OMP_NUM_THREADS 2
+#define OMP_NUM_THREADS 6
 
 // MPI parameters
 #define MPI_ROOT_PROCESS 0

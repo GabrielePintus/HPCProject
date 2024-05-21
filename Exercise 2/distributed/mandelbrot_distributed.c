@@ -39,7 +39,7 @@
 
 // OpenMP parameters
 #define OMP_CHUNK_SIZE 4
-#define OMP_NUM_THREADS 2
+// #define OMP_NUM_THREADS 6
 
 // MPI parameters
 #define MPI_ROOT_PROCESS 0
@@ -199,10 +199,8 @@ int main(int argc, char *argv[])
         MAX_ITER = atoi(argv[7]);
     }
 
-
-
     // Set the number of threads for OpenMP
-    omp_set_num_threads(OMP_NUM_THREADS);
+    // omp_set_num_threads(OMP_NUM_THREADS);
     
 
     // First thing to do is to calculate the total size of the image
@@ -210,7 +208,7 @@ int main(int argc, char *argv[])
 
     // Initialize MPI
     int32_t rank, size;
-    MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv, MPI_THREAD_FUNNELED);
 
     MPI_Datatype MPI_IMAGE_T;
     if (sizeof(image_t) == 1) {
@@ -224,10 +222,12 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    // Set the number of threads
+    // omp_set_num_threads(OMP_NUM_THREADS);
 
     // Print args
     if (rank == MPI_ROOT_PROCESS) {
-        printf("Number of threads: %d\n", OMP_NUM_THREADS);
+        // printf("Number of threads: %d\n", OMP_NUM_THREADS);
         printf("Rank: %d, Size: %d\n", rank, size);
         printf("Width: %d, Height: %d, Max Iter: %d\n", WIDTH, HEIGHT, MAX_ITER);
         printf("X_MIN: %f, Y_MIN: %f, X_MAX: %f, Y_MAX: %f\n", X_MIN, Y_MIN, X_MAX, Y_MAX);
@@ -306,16 +306,16 @@ int main(int argc, char *argv[])
                     if (item != NULL) {
                         TAILQ_REMOVE(work_queue, item, entries);
 
-                        MPI_Send(&item->start_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
-                        MPI_Send(&item->end_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
+                        MPI_Send(&item->start_idx, 1, MPI_INT, i, MPI_STARTIDX_TAG, MPI_COMM_WORLD);
+                        MPI_Send(&item->end_idx, 1, MPI_INT, i, MPI_ENDIDX_TAG, MPI_COMM_WORLD);
 
                         --available_chunks;
                         processes_status[i] = 1;
                         free(item);
                     }else{
                         int end_idx = -1;
-                        MPI_Send(&end_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
-                        MPI_Send(&end_idx, 1, MPI_INT, i, TAG, MPI_COMM_WORLD);
+                        MPI_Send(&end_idx, 1, MPI_INT, i, MPI_STARTIDX_TAG, MPI_COMM_WORLD);
+                        MPI_Send(&end_idx, 1, MPI_INT, i, MPI_ENDIDX_TAG, MPI_COMM_WORLD);
                     }
                 }
             }
@@ -346,8 +346,8 @@ int main(int argc, char *argv[])
         while (1) {
             // Receive the work item
             int start_idx, end_idx;
-            MPI_Recv(&start_idx, 1, MPI_INT, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Recv(&end_idx, 1, MPI_INT, MPI_ROOT_PROCESS, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&start_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_STARTIDX_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&end_idx, 1, MPI_INT, MPI_ROOT_PROCESS, MPI_ENDIDX_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             // Check for termination
             if (start_idx == -1 || end_idx == -1) {
@@ -381,7 +381,10 @@ int main(int argc, char *argv[])
     // Save the image to a PGM file
     if (rank == MPI_ROOT_PROCESS) {
         free(work_queue);
-        save_image("mandelbrot.pgm", image, WIDTH, HEIGHT);
+        // filename
+        char filename[100];
+        sprintf(filename, "mandelbrot_%dx%d_%d.pgm", WIDTH, HEIGHT, size);
+        save_image(filename, image, WIDTH, HEIGHT);
         free(image);
     }
 
