@@ -51,8 +51,11 @@
     is compute-bound when the number of iterations is large, memory-bound
     otherwise. Notice that we did not consider the memory operations
     required to store the result of the computation nor the comparisons in
-    the conditional statement. Anyway we also did not consider the effect
+    the conditional statement. Anyway we also did not consider the major effect
     of the cache, which significantly reduces the time to access the memory.
+    A more accurate analysis, taking into account the cache factor, would
+    probably increase the value of the arithmetic intensity, making the
+    computation more compute-bound.
 
 
 \section{Implementation}
@@ -665,6 +668,284 @@
 \subsubsection{MPI}
     With the same setup as before, we show the results of the weak scaling
     with MPI. The results are shown in the following figures.
+    \begin{figure}[H]
+        \centering
+        \resizebox{0.45\textwidth}{!}{
+        \begin{tikzpicture}
+            \begin{axis}[
+                title={Weak Scaling with MPI - 512x512 image},
+                xlabel={Number of Processors},
+                ylabel={Duration (s)},
+                legend pos=north east,
+                grid=both,
+                grid style={line width=.1pt, draw=gray!20},
+                major grid style={line width=.2pt,draw=gray!50},
+                minor tick num=2,
+                xtick={4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96},
+                % xmode=log,
+                % log basis x={2},
+                % ymin=6,
+                % xmin=0,
+                % xmax=100,
+                % ytick={0, 50, 100, 150, 200, 250, 300, 350, 400, 450},
+                width=10cm,
+                height=6cm,
+                % cycle list name=color list,
+            ]
+
+            % x = [4, 8, 12, ..., 96]
+            % real = [3.828116, 3.874153, 4.253264, 4.206351, 4.398861, 4.351471, 4.557403, 4.618748, 4.637015, 4.731012, 4.761051, 4.944281, 4.743085, 4.464159, 2.901211, 2.97965, 2.811327, 2.783024, 2.697758, 3.16474, 2.783413, 2.801726, 2.759016, 3.052694]
+            % theory = [3.828116, 3.828116, ..., 3.828116]
+            % linreg = 3.91816218 4.01124975 4.10433733 4.1974249  4.29051247 4.38360005 4.47668762 4.56977519 4.66286277 4.75595034 4.84903791 4.94212549 4.5835908  4.0064772  3.4293636  2.85225    2.8574569  2.86176193 2.86606697 2.870372   2.87467703 2.87898207 2.8832871  2.88759213]
+            
+            % Blue line: Real
+            \addplot[
+                color=blue,
+                mark=none,
+                ]
+                coordinates {
+                (4, 3.828116)
+                (8, 3.874153)
+                (12, 4.253264)
+                (16, 4.206351)
+                (20, 4.398861)
+                (24, 4.351471)
+                (28, 4.557403)
+                (32, 4.618748)
+                (36, 4.637015)
+                (40, 4.731012)
+                (44, 4.761051)
+                (48, 4.944281)
+                (52, 4.743085)
+                (56, 4.464159)
+                (60, 2.901211)
+                (64, 2.97965)
+                (68, 2.811327)
+                (72, 2.783024)
+                (76, 2.697758)
+                (80, 3.16474)
+                (84, 2.783413)
+                (88, 2.801726)
+                (92, 2.759016)
+                (96, 3.052694)
+                };
+                \addlegendentry{Real}
+            
+            % Orange line: theory
+            \addplot[
+                color=orange,
+                mark=none,
+                ]
+                coordinates {
+                (4, 3.828116)
+                (8, 3.828116)
+                (12, 3.828116)
+                (16, 3.828116)
+                (20, 3.828116)
+                (24, 3.828116)
+                (28, 3.828116)
+                (32, 3.828116)
+                (36, 3.828116)
+                (40, 3.828116)
+                (44, 3.828116)
+                (48, 3.828116)
+                (52, 3.828116)
+                (56, 3.828116)
+                (60, 3.828116)
+                (64, 3.828116)
+                (68, 3.828116)
+                (72, 3.828116)
+                (76, 3.828116)
+                (80, 3.828116)
+                (84, 3.828116)
+                (88, 3.828116)
+                (92, 3.828116)
+                (96, 3.828116)
+                };
+                \addlegendentry{Theoretical}
+
+            % dashed red line: Linear regression
+            \addplot[
+                color=red,
+                mark=none,
+                dashed
+                ]
+                coordinates {
+                (4, 3.91816218)
+                (8, 4.01124975)
+                (12, 4.10433733)
+                (16, 4.1974249)
+                (20, 4.29051247)
+                (24, 4.38360005)
+                (28, 4.47668762)
+                (32, 4.56977519)
+                (36, 4.66286277)
+                (40, 4.75595034)
+                (44, 4.84903791)
+                (48, 4.94212549)
+                (52, 4.5835908)
+                (56, 4.0064772)
+                (60, 3.4293636)
+                (64, 2.85225)
+                (68, 2.8574569)
+                (72, 2.86176193)
+                (76, 2.86606697)
+                (80, 2.870372)
+                (84, 2.87467703)
+                (88, 2.87898207)
+                (92, 2.8832871)
+                (96, 2.88759213)
+                };
+                \addlegendentry{Linear spline}
+            \end{axis}
+        \end{tikzpicture}
+        }
+    \end{figure} % slopes: 0.023, -0.16, 0.001
+    \begin{figure}[H]
+        \centering
+        \resizebox{0.45\textwidth}{!}{
+        \begin{tikzpicture}
+            \begin{axis}[
+                title={Weak Scaling with MPI - 4096x4096 image},
+                xlabel={Number of Processors},
+                ylabel={Duration (s)},
+                legend pos=north east,
+                grid=both,
+                grid style={line width=.1pt, draw=gray!20},
+                major grid style={line width=.2pt,draw=gray!50},
+                minor tick num=2,
+                xtick={4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96},
+                % xmode=log,
+                % log basis x={2},
+                % ymin=6,
+                % xmin=0,
+                % xmax=100,
+                % ytick={0, 50, 100, 150, 200, 250, 300, 350, 400, 450},
+                width=10cm,
+                height=6cm,
+                % cycle list name=color list,
+            ]
+
+            % x = [4, 8, 12, ..., 92, 96]
+            % real = [237.225067, 273.079983, 282.287675, 256.41918, 275.142828, 240.061849, 240.118074, 248.890188, 234.048535, 250.200931, 267.119249, 253.859619, 260.50613, 286.838434, 238.399149, 226.496507, 237.196933, 243.889185, 234.796937, 238.769855, 239.666813, 238.076829, 242.194304, 241.577542]
+            % theory = [237.225067, 237.225067, ..., 237.225067]
+            % linreg = [261.43834089 260.39610037 259.35385984 258.31161931 257.26937879 256.22713826 255.18489773 254.1426572  253.10041668 252.05817615 251.01593562 249.9736951  248.93145457 247.88921404 246.84697352 245.80473299 244.76249246 243.72025194 242.67801141 241.63577088 240.59353035 239.55128983 238.5090493  237.46680877]
+            
+            % Blue line: Real
+            \addplot[
+                color=blue,
+                mark=none,
+                ]
+                coordinates {
+                (4, 237.225067)
+                (8, 273.079983)
+                (12, 282.287675)
+                (16, 256.41918)
+                (20, 275.142828)
+                (24, 240.061849)
+                (28, 240.118074)
+                (32, 248.890188)
+                (36, 234.048535)
+                (40, 250.200931)
+                (44, 267.119249)
+                (48, 253.859619)
+                (52, 260.50613)
+                (56, 286.838434)
+                (60, 238.399149)
+                (64, 226.496507)
+                (68, 237.196933)
+                (72, 243.889185)
+                (76, 234.796937)
+                (80, 238.769855)
+                (84, 239.666813)
+                (88, 238.076829)
+                (92, 242.194304)
+                (96, 241.577542)
+                };
+                \addlegendentry{Real}
+            
+            % Orange line: theory
+            \addplot[
+                color=orange,
+                mark=none,
+                ]
+                coordinates {
+                (4, 237.225067)
+                (8, 237.225067)
+                (12, 237.225067)
+                (16, 237.225067)
+                (20, 237.225067)
+                (24, 237.225067)
+                (28, 237.225067)
+                (32, 237.225067)
+                (36, 237.225067)
+                (40, 237.225067)
+                (44, 237.225067)
+                (48, 237.225067)
+                (52, 237.225067)
+                (56, 237.225067)
+                (60, 237.225067)
+                (64, 237.225067)
+                (68, 237.225067)
+                (72, 237.225067)
+                (76, 237.225067)
+                (80, 237.225067)
+                (84, 237.225067)
+                (88, 237.225067)
+                (92, 237.225067)
+                (96, 237.225067)
+                };
+                \addlegendentry{Theoretical}
+
+            % dashed red line: Linear regression
+            \addplot[
+                color=red,
+                mark=none,
+                dashed
+                ]
+                coordinates {
+                (4, 261.43834089)
+                (8, 260.39610037)
+                (12, 259.35385984)
+                (16, 258.31161931)
+                (20, 257.26937879)
+                (24, 256.22713826)
+                (28, 255.18489773)
+                (32, 254.1426572)
+                (36, 253.10041668)
+                (40, 252.05817615)
+                (44, 251.01593562)
+                (48, 249.9736951)
+                (52, 248.93145457)
+                (56, 247.88921404)
+                (60, 246.84697352)
+                (64, 245.80473299)
+                (68, 244.76249246)
+                (72, 243.72025194)
+                (76, 242.67801141)
+                (80, 241.63577088)
+                (84, 240.59353035)
+                (88, 239.55128983)
+                (92, 238.5090493)
+                (96, 237.46680877)
+                };
+                \addlegendentry{Linear regression}
+            \end{axis}
+        \end{tikzpicture}
+        }
+    \end{figure} % -0.26
+    Starting from the second image ($4096 \times 4096$), the real results
+    show a high volatility when compared to the theoretical model. There is
+    no clear trend in the results, despite this the linear regression tells
+    us that the slope $(-0.26)$ is negative, meaning that the computation time is
+    decreasing with the number of processes. \\
+    The first image ($512 \times 512$) is more delicate to analyze. The
+    experimental results shows three different behaviors. In the first part
+    the computation time is increasing with slope $0.023$, which is consistent
+    enough with the theoretical model. In the second there is a sudden drop
+    in the computation time, with a slope of $-0.16$. Finally, in the last
+    part the computation time follows almost perfectly the theoretical model
+    with a slope of $0.001$. \\
 
 \subsubsection{OpenMP}
     We now show the results of the weak scaling with OpenMP. The results
@@ -674,14 +955,14 @@
         \resizebox{0.45\textwidth}{!}{
         \begin{tikzpicture}
             \begin{axis}[
-                title={Strong Scaling with MPI - 512x512 image},
+                title={Weak Scaling with OpenMP - 512x512 image},
                 xlabel={Number of Processors},
                 ylabel={Duration (s)},
                 legend pos=north west,
                 grid=both,
                 grid style={line width=.1pt, draw=gray!20},
                 major grid style={line width=.2pt,draw=gray!50},
-                % minor tick num=2,
+                minor tick num=2,
                 xtick={1,2,4,6,8,10,12,14,16,18,20,22,24},
                 % xmode=log,
                 % log basis x={2},
@@ -801,7 +1082,150 @@
             \end{axis}
         \end{tikzpicture}
         }
-    \end{figure}
+    \end{figure} % Slope = 0.019
+    \begin{figure}[H]
+        \centering
+        \resizebox{0.45\textwidth}{!}{
+        \begin{tikzpicture}
+            \begin{axis}[
+                title={Weak Scaling with OpenMP - 4096x4096 image},
+                xlabel={Number of Processors},
+                ylabel={Duration (s)},
+                legend pos=north west,
+                grid=both,
+                grid style={line width=.1pt, draw=gray!20},
+                major grid style={line width=.2pt,draw=gray!50},
+                minor tick num=2,
+                xtick={1,2,4,6,8,10,12,14,16,18,20,22,24},
+                % xmode=log,
+                % log basis x={2},
+                % ymin=6,
+                % xmin=0,
+                % xmax=100,
+                ytick={400, 410, 420, 430, 440, 450},
+                width=10cm,
+                height=6cm,
+                % cycle list name=color list,
+            ]
+
+            % x = [1, 2, 3, ..., 23, 24]
+            % real = [415.687145, 416.55117, 417.355026, 418.592702, 419.048879, 419.699992, 420.430216, 421.008028, 421.110732, 422.635459, 423.231421, 424.04977, 425.812405, 426.381106, 427.286019, 428.274215, 429.170853, 429.15761, 429.521595, 431.220551, 431.619372, 432.396585, 433.96322, 435.211153]
+            % theory = [415.687145, 415.687145, ..., 415.687145 ]
+            % linreg = [415.54423536 416.36435701 417.18447866 418.00460031 418.82472196 419.64484361 420.46496526 421.28508691 422.10520856 422.92533021 423.74545186 424.56557351 425.38569516 426.20581681 427.02593846 427.84606011 428.66618176 429.48630341 430.30642506 431.12654671 431.94666835 432.76679 433.58691165 434.4070333 ]
+            
+            % Blue line: Real
+            \addplot[
+                color=blue,
+                mark=none,
+                ]
+                coordinates {
+                (1, 415.687145)
+                (2, 416.55117)
+                (3, 417.355026)
+                (4, 418.592702)
+                (5, 419.048879)
+                (6, 419.699992)
+                (7, 420.430216)
+                (8, 421.008028)
+                (9, 421.110732)
+                (10, 422.635459)
+                (11, 423.231421)
+                (12, 424.04977)
+                (13, 425.812405)
+                (14, 426.381106)
+                (15, 427.286019)
+                (16, 428.274215)
+                (17, 429.170853)
+                (18, 429.15761)
+                (19, 429.521595)
+                (20, 431.220551)
+                (21, 431.619372)
+                (22, 432.396585)
+                (23, 433.96322)
+                (24, 435.211153)
+                };
+                \addlegendentry{Real}
+            
+            % Orange line: theory
+            \addplot[
+                color=orange,
+                mark=none,
+                ]
+                coordinates {
+                (1, 415.687145)
+                (2, 415.687145)
+                (3, 415.687145)
+                (4, 415.687145)
+                (5, 415.687145)
+                (6, 415.687145)
+                (7, 415.687145)
+                (8, 415.687145)
+                (9, 415.687145)
+                (10, 415.687145)
+                (11, 415.687145)
+                (12, 415.687145)
+                (13, 415.687145)
+                (14, 415.687145)
+                (15, 415.687145)
+                (16, 415.687145)
+                (17, 415.687145)
+                (18, 415.687145)
+                (19, 415.687145)
+                (20, 415.687145)
+                (21, 415.687145)
+                (22, 415.687145)
+                (23, 415.687145)
+                (24, 415.687145)
+                };
+                \addlegendentry{Theoretical}
+
+            % dashed red line: Linear regression
+            \addplot[
+                color=red,
+                mark=none,
+                dashed
+                ]
+                coordinates {
+                (1, 415.54423536)
+                (2, 416.36435701)
+                (3, 417.18447866)
+                (4, 418.00460031)
+                (5, 418.82472196)
+                (6, 419.64484361)
+                (7, 420.46496526)
+                (8, 421.28508691)
+                (9, 422.10520856)
+                (10, 422.92533021)
+                (11, 423.74545186)
+                (12, 424.56557351)
+                (13, 425.38569516)
+                (14, 426.20581681)
+                (15, 427.02593846)
+                (16, 427.84606011)
+                (17, 428.66618176)
+                (18, 429.48630341)
+                (19, 430.30642506)
+                (20, 431.12654671)
+                (21, 431.94666835)
+                (22, 432.76679)
+                (23, 433.58691165)
+                (24, 434.4070333)
+                };
+                \addlegendentry{Linear regression}
+            \end{axis}
+        \end{tikzpicture}
+        }
+    \end{figure} % Slope = 0.82
+    Theoretically, the experimental data should be consistent with the
+    straight horizontal line indicating that the computation time is
+    constant. In the first case the results are consistent enough
+    with the theoretical model, with a linear increasing trend
+    with coefficient of $0.019$. In the second case, the coefficient
+    raises to $0.82$, indicating that the computation time is increasing
+    significantly with the number of processors and therefore that the
+    program is not scaling well.
+
+    
 
 
 
