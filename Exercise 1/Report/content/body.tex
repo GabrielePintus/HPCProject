@@ -525,6 +525,87 @@
     sends a different chunks of the message to each process. This is useful
     when the root process has a block of data that needs to be divided
     among all the other processes.
+    The parameters for the tests are:
+    \begin{itemize}
+        \item iterations: 1000
+        \item warmup: 100
+        \item algorithms: basic linear, binomial
+        \item message size: 1byte $\rightarrow$ 1 Mb
+        \item number of processes: $2, 4, \dots, 48$
+    \end{itemize}
+    Once more, we repeat the tests intra-socket, intra-node, and intra-cluster.
+\subsubsection{Intra-Socket}
+    Mapping by core, we perform the scatter operation between multiple
+    processes on the same socket. The average latencies are reported in
+    plot below.
+    % Basic Linear
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 3cm 0 4.5cm
+        ]{figures/scat_socket_alg1.pdf}
+        \caption{Intra-Socket scatter latency (basic linear)}
+    \end{figure}
+    % Binomial
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 3cm 0 4.5cm
+        ]{figures/scat_socket_alg2.pdf}
+        \caption{Intra-Socket scatter latency (binomial)}
+    \end{figure}
+\subsubsection{Intra-Node}
+    Mapping by socket, we perform the scatter operation between multiple
+    processes on different sockets. The average latencies are reported in
+    plot below.
+    % Basic Linear
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 3cm 0 4.5cm
+        ]{figures/scat_node_alg1.pdf}
+        \caption{Intra-Node scatter latency (basic linear)}
+    \end{figure}
+    % Binomial
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 3cm 0 4.5cm
+        ]{figures/scat_node_alg2.pdf}
+        \caption{Intra-Node scatter latency (binomial)}
+    \end{figure}
+\subsubsection{Intra-Cluster}
+    Mapping by node, we perform the scatter operation between multiple
+    processes on different nodes. The average latencies are reported in
+    plot below.
+    % Basic Linear
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 3cm 0 4.5cm
+        ]{figures/scat_cluster_alg1.pdf}
+        \caption{Intra-Cluster scatter latency (basic linear)}
+    \end{figure}
+    % Binomial
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 3cm 0 4.5cm
+        ]{figures/scat_cluster_alg2.pdf}
+        \caption{Intra-Cluster scatter latency (binomial)}
+    \end{figure}    
 
 
 
