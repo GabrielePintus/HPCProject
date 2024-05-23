@@ -119,9 +119,9 @@
         }
     \end{figure}
     For a small message size of 2 bytes, the binomial tree algorithm
-    outperforms the basic linear one. 
-
-
+    outperforms the basic linear one. Considering the case with 
+    message size of 1 Kb, the two algorithms do not show particular
+    differences.
     \begin{figure}[H]
         \centering
         \resizebox{0.45\textwidth}{!}{
@@ -323,5 +323,10 @@
         \end{tikzpicture}
         }
     \end{figure}
+    In the last case with message size of 1 Mb, the basic linear algorithm
+    is faster than the binomial tree one. One reason could be that the
+    binomial tree algorithm is more complex and the overhead of the
+    additional communication steps is not compensated by the reduced
+    amount of data transmitted at each step.
 
 

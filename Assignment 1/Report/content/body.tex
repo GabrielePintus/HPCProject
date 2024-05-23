@@ -119,6 +119,29 @@
 
 
 \section{Conclusions}
+    In this report we have estimated used the tools from the OSU
+    Benchmarks suite to estimate the latency of different collective
+    operations in OpenMPI. We have analyzed the latency of the
+    broadcast and scatter operations, along with the latency of the
+    basic send/receive operation. We have varied the number of
+    processes, the message size, the core allocation strategy and
+    the distribution algorithm. We have found that the latency of
+    the basic point-to-point operation increase linearly
+    with the message size, while the latency of the broadcast and
+    scatter operations behave differently depending on the
+    distribution algorithm.\\
+    Furthermore, we have seen how the topology of the network
+    and of the node affect the latency of the operations. Considering
+    always the point-to-point operation, the different core allocation
+    strategies have shown to have a significant impact on the slope
+    of the linear regression. \\
+    In the case of the broadcast operation, the chain algorithm
+    has shown to be the fastest, while the basic linear algorithm
+    has shown to be the less efficient. In the case of the scatter
+    operation, the binomial tree algorithm has outperformed the
+    basic linear for small message sizes, while this second one
+    has shown to be the fastest for large message sizes. \\
+    
 
 
 
