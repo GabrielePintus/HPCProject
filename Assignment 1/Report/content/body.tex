@@ -33,19 +33,23 @@
     \end{enumerate}
 \subsubsection{Basic linear}
     The basic linear algorithm is the simplest of the four. It sends
-    the message in a linear way, starting from the root process
-    and ending with the last process. Therefore the only node that
-    is effectively sending data is the root process.
+    the message in a linear way: the root process starts by sending
+    the message to the first process, then it sends the message to the
+    second process, and so on, until all the processes have received
+    the message. The total amount of data transmitted is $(n-1) \cdot m$,
+    where $n$ is the number of processes and $m$ is the message size.
+    With this algorithm, only one process is in charge of sending the
+    message to all the other processes.
 
 \subsubsection{Chain}
     The chain algorithm is similar to the basic linear algorithm, but
-    instead of sending the message from the root process to the last
+    instead of sending the message from the first process to the last
     process, it sends the message from the root process to the next
-    process, and then from that process to the next process, and so on.
+    process, and then from that process to the next one, and so on.
     This way every node is sending data to another node in a given
     instant of time. This implicate that the root process can start
-    working on its own data right after sending the message to the
-    next process. \\
+    working on its own data right after sending the first message to
+    the first process. \\
     In the case of the scatter operation, we will see later,
     The size of the message decrease at each step, since every
     process is taking from itself a part of the message and sending
@@ -98,8 +102,10 @@
     is minimized.
 
 \section{Operations}
-    In this section we present three benchmarks: latency, broadcast
-    and scatter. 
+    In this section we perform three benchmarks, one for the pure
+    latency, one for the broadcast operation and one for the scatter
+    operation. Since the last two operations build on top of the
+    first one, this will act as a baseline for the other two.
 
 % Latency
 \input{content/latency.tex}

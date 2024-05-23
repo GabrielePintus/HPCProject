@@ -202,7 +202,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Strong Scaling with MPI - 4096x4096 image},
-                xlabel={Number of Processors},
+                xlabel={Number of MPI Processes},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -277,7 +277,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Strong Scaling with MPI - 512x512 image},
-                xlabel={Number of Processors},
+                xlabel={Number of MPI Processes},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -362,7 +362,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Strong Scaling with MPI - 4096x4096 image},
-                xlabel={Number of Processors},
+                xlabel={Number of MPI Processes},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -468,7 +468,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Strong Scaling with OpenMP - 4096x4096 image},
-                xlabel={Number of Processors},
+                xlabel={Number of OMP Threads},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -566,7 +566,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Strong Scaling with OpenMP - 512x512 image},
-                xlabel={Number of Processors},
+                xlabel={Number of OMP Threads},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -691,7 +691,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Weak Scaling with MPI - 512x512 image},
-                xlabel={Number of Processors},
+                xlabel={Number of MPI Processes},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -824,7 +824,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Weak Scaling with MPI - 4096x4096 image},
-                xlabel={Number of Processors},
+                xlabel={Number of MPI Processes},
                 ylabel={Duration (s)},
                 legend pos=north east,
                 grid=both,
@@ -960,9 +960,10 @@
     experimental results shows three different behaviors. In the first part
     the computation time is increasing with slope $0.023$, which is consistent
     enough with the theoretical model. In the second there is a sudden drop
-    in the computation time, with a slope of $-0.16$. Finally, in the last
-    part the computation time follows almost perfectly the theoretical model
-    with a slope of $0.001$. \\
+    in the computation time, with a slope of $-0.16$, happenging when the
+    total number of processes is $24$, therefore every first socket of the
+    each node is filled.Finally, in the last part the computation time
+    follows almost perfectly the theoretical model with a slope of $0.001$. \\
 
 \subsubsection{OpenMP}
     We now show the results of the weak scaling with OpenMP. The results
@@ -973,7 +974,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Weak Scaling with OpenMP - 512x512 image},
-                xlabel={Number of Processors},
+                xlabel={Number of OMP Threads},
                 ylabel={Duration (s)},
                 legend pos=north west,
                 grid=both,
@@ -1106,7 +1107,7 @@
         \begin{tikzpicture}
             \begin{axis}[
                 title={Weak Scaling with OpenMP - 4096x4096 image},
-                xlabel={Number of Processors},
+                xlabel={Number of OMP Threads},
                 ylabel={Duration (s)},
                 legend pos=north west,
                 grid=both,
@@ -1245,7 +1246,7 @@
     
 
 
-
+\newpage
 \section{Conclusions}
     In this work we have implemented the computation of the Mandelbrot set
     with OpenMP and MPI and we have then evaluated its performance by

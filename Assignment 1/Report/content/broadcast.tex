@@ -203,21 +203,7 @@
     consistently outperforms the other algorithms. Since the message
     size is very small, we cannot observe a wide difference between
     all the algorithms. However, this will become more evident in the
-    two following tests. \\
-    As expected, when increasing the message size the difference in latency
-    between the \enquote*{optimized} algorithms and the basic linear
-    algorithm becomes more evident. This effect can be clearly assessed
-    from the two following plots. The increase in latency caused by the
-    network communication is more pronounced for larger messages. Notice
-    the constant linear trend of the basic linear algorithm with 1 Mb
-    messages. This is due to the fact that the basic linear algorithm
-    sends the message from the root process to the last process in a
-    linear way. Consequently the last process will receive the message
-    only after all the other processes have received it. This is the
-    reason why the latency increases linearly with the number of processes.
-    After the first node being fully utilized, the second node starts to
-    be used and the latency decreases a bit to then start increasing again,
-    this time less rapidly.
+    two following tests.
     
     \begin{figure}[H]
         \centering
@@ -556,5 +542,18 @@
         \end{tikzpicture}
         }
     \end{figure}
-
+    As expected, when increasing the message size the difference in latency
+    between the \enquote*{optimized} algorithms and the basic linear
+    algorithm becomes more evident. This effect can be clearly assessed
+    from the two following plots. The increase in latency caused by the
+    network communication is more pronounced for larger messages. Notice
+    the constant linear trend of the basic linear algorithm with 1 Mb
+    messages. This is due to the fact that the basic linear algorithm
+    sends the message from the root process to the last process in a
+    linear way. Consequently the last process will receive the message
+    only after all the other processes have received it. This is the
+    reason why the latency increases linearly with the number of processes.
+    After the first node being fully utilized, the second node starts to
+    be used and the latency decreases a bit to then start increasing again,
+    this time less rapidly.
 
