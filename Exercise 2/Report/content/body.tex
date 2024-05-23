@@ -21,10 +21,29 @@
     of each point is independent of the others, so we can easily parallelize
     the computation and distribute it among multiple processes to speed up
     the computation. We use the OpenMP and MPI libraries to achieve this.
+    In this report we improperly make a distinction between the two libraries,
+    referring to OpenMP as a parallel computing library and MPI as a
+    distributed computing library. In reality, MPI can also be used to
+    parallelize the computation on a single machine. However, in our hybrid
+    implementation presented few sections below, we use MPI to distribute
+    the computation among multiple nodes of the cluster and OpenMP to
+    parallelize the computation on each node. \\
+    % include png
+    \begin{figure}[H]
+        \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            trim=0 35cm 45cm 35cm
+        ]{pictures/mandelbrot_4096x4096_1-min.png}
+        \caption{Rendering of the Mandelbrot set}
+    \end{figure}
+
 \subsection{Arithmetic Intesity}
     The arithmetic intensity of a program is defined as the ratio of the
     number of arithmetic operations to the number of memory operations.
-    In our case we have:
+    Considering only the function which computes the value of a single
+    point of the set, we have:
     \begin{itemize}
         \item 2 mult and 1 add: \texttt{z.x*z.x+z.y*z.y}
         \item 2 mult, 1 sub and 1 add: \texttt{temp=z.x*z.x-z.y*z.y+c.x}
@@ -50,12 +69,12 @@
     This value is slightly greater than 1, which means that the computation
     is compute-bound when the number of iterations is large, memory-bound
     otherwise. Notice that we did not consider the memory operations
-    required to store the result of the computation nor the comparisons in
-    the conditional statement. Anyway we also did not consider the major effect
+    required to store the partials results when more than one arithmetic
+    operation is involved in the same line of code.
+    Anyway we also did not consider the major effect
     of the cache, which significantly reduces the time to access the memory.
-    A more accurate analysis, taking into account the cache factor, would
-    probably increase the value of the arithmetic intensity, making the
-    computation more compute-bound.
+    A more accurate analysis would probably increase the value of the
+    arithmetic intensity, making the computation even more compute-bound.
 
 
 \section{Implementation}
@@ -64,20 +83,17 @@
     The value of a point in the Mandelbrot set is computed by iterating the
     aforementioned sequence, this is achieved with the \texttt{mandelbrot}
     function. This function is invoked for each point in the image by the
-    \texttt{mandelbrot\_set} function. Finally, the result is saved as a PGM
-    image by the \texttt{save\_image} function. Some important constants are
-    defined with preprocessor directives:
-    \begin{itemize}
-        \item \texttt{WIDTH} and \texttt{HEIGHT} define the dimensions of the
-            image.
-        \item \texttt{MAX\_ITER} defines the maximum number of iterations
-            before we consider a point to be in the Mandelbrot set.
-        \item \texttt{X\_MIN}, \texttt{X\_MAX}, \texttt{Y\_MIN} and \texttt{Y\_MAX}
-            define the region of the complex plane we are interested in.
-    \end{itemize}
-    The image array is considered a 1-dimension array allocated contiguously
-    in memory with the \texttt{calloc} function. This also initialize each
-    element to 0.
+    \texttt{mandelbrot\_set} function. The image array is considered a 1-dimension
+    array allocated contiguously in memory with the \texttt{calloc} function.
+    This also initialize each element to 0. Finally, the result is saved as
+    a PGM image by the \texttt{save\_image} function. \\
+    The parameters one can pass to the program are the following:
+    \begin{verbatim}
+        ./mandelbrot <width> <height> 
+                     <x_min> <y_min> 
+                     <x_max> <y_max> 
+                     <max_iter>
+    \end{verbatim}
 
 \subsection{Hardware}
     All the test have been performed on the ORFEO cluster of the Area Science
@@ -96,7 +112,7 @@
     the loop to parallelize it. The \texttt{schedule} clause is used to specify how
     the scheduler should distribute the iterations among the threads. The \texttt{dynamic}
     option tells the scheduler to assign chunks of iterations to the threads as they
-    finish their work. This is useful when the time to compute each iteration is not
+    finish their work. This is useful when the time to compute each piece of work is not
     constant, as is the case with the Mandelbrot set in which few points require
     a high number of iterations to be computed. By defining the \texttt{OMP\_CHUNK\_SIZE}
     constant we can control the size of the chunks of iterations assigned to each thread.
@@ -106,8 +122,8 @@
 \subsection{Distributed Implementation}
     To distribute the computation of the Mandelbrot set among multiple processes
     we use the Message Passing Interface (MPI) library. Unlike OpenMP, MPI require
-    a more complex setup. Here we have to explicitly define the communication
-    between the processes. The main idea is to divide the image into multiple
+    a more complex setup. Here we have to explicitly define how the communication
+    between the processes works. The main idea is to divide the image into multiple
     chunks, each of size \texttt{MPI\_CHUNK\_SIZE}, build a work queue with the
     chunks and then distribute the work among the processes. The queue structure
     is provided by the library \texttt{sys/queue.h}, each element of the queue
@@ -121,7 +137,7 @@
     variable and the number of available chunks with the \texttt{available\_chunks}
     variable. The available chunks are the ones that are not already assigned 
     to a process. If the number of available chunks is greater than 0, the master
-    process assign a work chunks to itself, without using any MPI function obviously.
+    process assign a work chunk to itself, without using any MPI function obviously.
     As a consequence, the master process has two responsibilities: to compute
     the mandelbrot set (as any other process) and to distribute the work among
     the processes. When a worker process has finished its computation, it sends
@@ -129,9 +145,9 @@
     Eventually, when the work queue has been emptied, the master process sends
     a stop message to the idle processes. \\
     By dynamically assigning the chunks to the processes we aim to reduce the
-    load imbalance among the processes. Basically we reproduce the same mechanism
-    OpenMP adopts to distribute the iterations among the threads when the 
-    \texttt{dynamic} schedule is used.
+    load imbalance. Basically we reproduce the same mechanism OpenMP adopts
+    to distribute the iterations among the threads when the \texttt{dynamic}
+    schedule is used.
 
 \subsection{Hybrid Implementation}
     We can combine the OpenMP and MPI libraries to achieve a hybrid implementation
@@ -438,9 +454,10 @@
     \end{table}
     The case of the $512 \times 512$ image is analogous. \\
     Another possible explanation could rely in the overhead caused by the 
-    initial serial part of the program. This value is constant and
-    independent from the number of processes, so it is more significant
-    when the number of processes is small.
+    initial serial part of the program and the communication between the
+    processes. This overhead could be greater than the time saved by the
+    parallel computation, leading to a worse performance when the number
+    of processes is increased.
 
 \subsubsection{OpenMP}
     We now show the results of the strong scaling with OpenMP compared
@@ -450,7 +467,7 @@
         \resizebox{0.45\textwidth}{!}{
         \begin{tikzpicture}
             \begin{axis}[
-                title={Strong Scaling with MPI - 4096x4096 image},
+                title={Strong Scaling with OpenMP - 4096x4096 image},
                 xlabel={Number of Processors},
                 ylabel={Duration (s)},
                 legend pos=north east,
@@ -548,7 +565,7 @@
         \resizebox{0.45\textwidth}{!}{
         \begin{tikzpicture}
             \begin{axis}[
-                title={Strong Scaling with MPI - 512x512 image},
+                title={Strong Scaling with OpenMP - 512x512 image},
                 xlabel={Number of Processors},
                 ylabel={Duration (s)},
                 legend pos=north east,
