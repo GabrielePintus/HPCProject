@@ -23,14 +23,19 @@ class DataHandler:
             l = line.strip().split(' ')
             if l:
                 lines.append([ x for x in l if x])
-        return lines[4:]
+        header = lines[:4]
+        for i in range(4):
+            header[i] = ' '.join(header[i])
+        body = lines[4:]
+                
+        return header, body
     
     def __init__(self, file_path):
         self.file_path  = file_path
         self.filename   = file_path.split('/')[-1]
         self.operation  = self.filename.split('_')[0]
         
-        data = DataHandler._load_data(file_path)
+        self.header, data = DataHandler._load_data(file_path)
         try:
             self.data = pandas.DataFrame(
                 data,
@@ -63,6 +68,12 @@ class DataHandler:
     def time(self, size):
         return self.data[self.data.index==size]['Avg Latency (us)'].values
         
+    def save(self, file_path):
+        header = '\n'.join(self.header)
+        body = self.data.to_string(header=False, index=True)
+        file_text = header + '\n' + body
+        with open(file_path, 'wt') as f:
+            f.write(file_text)
 
 
 class BroadcastDataHandler(DataHandler):
