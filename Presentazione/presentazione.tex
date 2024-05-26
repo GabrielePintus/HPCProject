@@ -1,0 +1,79 @@
+\documentclass[10pt]{beamer}
+
+
+% \usepackage{./beamercolorthemeaggie.sty}
+
+\usetheme[progressbar=frametitle]{metropolis}   
+\usecolortheme{aggie}
+
+\usepackage{appendixnumberbeamer}
+\usepackage{booktabs}
+\usepackage[scale=2]{ccicons}
+\usepackage{xcolor}
+\usepackage{multicol}
+\usepackage{float}
+\usepackage{csquotes}
+\usepackage{pgfplots}
+\usepgfplotslibrary{dateplot}
+
+\usepackage{xspace}
+\newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
+
+\usepackage{subfig}
+\usepackage{listings}
+
+% Define C syntax highlighting settings
+\lstdefinestyle{customc}{
+    belowcaptionskip=1\baselineskip,
+    breaklines=true,
+    % frame=L,
+    xleftmargin=\parindent,
+    language=C,
+    showstringspaces=false,
+    basicstyle=\footnotesize\ttfamily,
+    keywordstyle=\bfseries\color{blue!60!black},
+    commentstyle=\itshape\color{purple!40!black},
+    identifierstyle=\color{black},
+    stringstyle=\color{orange},
+}
+% Define a style for assembly code
+% Define a style for assembly code
+\lstdefinestyle{asm}{
+  language=[x86masm]Assembler,
+  basicstyle=\ttfamily\footnotesize,
+  commentstyle=\itshape\color{gray},
+  keywordstyle=\bfseries\color{black},
+  stringstyle=\color{red},
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  escapechar=§,  % Define an escape character
+  morekeywords={.LFB6, .cfi_startproc, pushq, .cfi_def_cfa_offset, 
+  .cfi_offset, movq, .cfi_def_cfa_register, movl, pxor, movsd, jmp}
+}
+
+
+
+\title{HPC Project}
+\subtitle{Parallel and Distributed Computing}
+% \date{\today}
+\date{\today}
+\author{Gabriele Pintus}
+\institute{University of Trieste}
+% \titlegraphic{\hfill\includegraphics[height=1.2cm]{pictures/logo.png}}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}[fragile]{Introduction}
+    The aim of this is project is to \dots
+\end{frame}
+
+
+% First assignment
+\include{content/assignment1.tex}
+% Second assignment
+\include{content/assignment2.tex}
+
+\end{document}
