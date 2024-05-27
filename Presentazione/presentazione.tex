@@ -13,14 +13,16 @@
 \usepackage{multicol}
 \usepackage{float}
 \usepackage{csquotes}
-\usepackage{pgfplots}
-\usepgfplotslibrary{dateplot}
-
-\usepackage{xspace}
-\newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
-
 \usepackage{subfig}
 \usepackage{listings}
+\usepackage{pgfplots}
+\usepackage{xspace}
+\usepgfplotslibrary{dateplot}
+
+
+
+
+
 
 % Define C syntax highlighting settings
 \lstdefinestyle{customc}{
@@ -52,22 +54,29 @@
   .cfi_offset, movq, .cfi_def_cfa_register, movl, pxor, movsd, jmp}
 }
 
+\newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
 
 
+
+
+%
+%   Title
+%
 \title{HPC Project}
 \subtitle{Parallel and Distributed Computing}
-% \date{\today}
 \date{\today}
 \author{Gabriele Pintus}
 \institute{University of Trieste}
-% \titlegraphic{\hfill\includegraphics[height=1.2cm]{pictures/logo.png}}
 
 \begin{document}
 
 \maketitle
 
 \begin{frame}[fragile]{Introduction}
-    The aim of this is project is to \dots
+  \textbf{Assignment 1}: \\
+  Measure the latency of multiple collective operations \\
+  \textbf{Assignment 2}: \\
+  Implement a parallel code which computes the Mandelbrot set
 \end{frame}
 
 
