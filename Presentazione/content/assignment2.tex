@@ -55,15 +55,11 @@
         = \frac{11}{10+\frac{3}{N}} \xrightarrow{N \to \infty} \frac{11}{10}
         = 1.1 \text{ flops/byte} > 1
     $$
-    Compute-bound when the number of iterations is large. \\
-    We are not considering optmizations like:
-    \begin{itemize}
-        \item Intense use of registers
-        \item Vectorization
-        \item Cache
-        \item Loop unrolling
-    \end{itemize}
-    Therefore, the AI could be higher.
+    Compute-bound when the number of iterations is large, i.e. in the light
+    and internal regions of the set. \\
+    Memory-bound when the number of iterations is small, i.e. in the
+    dark external regions of the set. \\
+    We are not considering any kind of optimization!
 \end{frame}
 
 %
@@ -148,20 +144,104 @@ int mandelbrot(const Complex c) {
     enables several optimizations. We compare the basic code with the
     level 3 optimized one by giving a look at the assembly code. \\
     \begin{itemize}
-        \item \textbf{Less memory accesses}: the optimized code uses more intensively
-        the CPU registers, avoiding memory accesses. This help reducing the
-        \textit{waiting for contention} time. \\
-        $20$ vs $70$ commands for memory accesses, $71\%$ less.
-        \item \textbf{Optimized memory}: the optimized code uses the \texttt{.p2align}
-        directive to align the memory accesses to the cache line size. This
-        reduces the number of cache misses. \\
-        \small\textit{There could still be a bit of room for manual optimization.}
-        \item \textbf{movapd}: the optimized code uses more often the \texttt{movapd}
-        instruction, which can moves two doubles at once.
-        \item \textbf{Parallelization}: more wisely, the optimized code uses
-        the \texttt{gomp\_parallel\_loop\_nonmonotonic\_dynamic} directive.
-        Chunk size can vary at runtime, allowing a better load balancing.
+        \item Less memory accesses
+        \item Better data alignment
     \end{itemize}
+\end{frame}
+%
+%   Less Memory Accesses
+%
+\begin{frame}[fragile,t]{Less Memory Accesses}
+    \begin{multicols}{2}
+        \begin{lstlisting}[style=asm, basicstyle=\fontsize{6}{7}\selectfont\ttfamily]
+movsd	-32(%rbp), %xmm1 # read c.x
+movsd	-32(%rbp), %xmm0 # read c.x
+mulsd	%xmm1, %xmm0     # c.x * c.x
+movsd	-24(%rbp), %xmm2 # read c.y
+movsd	-24(%rbp), %xmm1 # read c.y
+mulsd	%xmm1, %xmm2     # c.y * c.y
+movapd	%xmm0, %xmm1     # c.x * c.x
+subsd	%xmm2, %xmm1     # c.x^2 - c.y^2
+movsd	-48(%rbp), %xmm0 # read z.x
+addsd	%xmm1, %xmm0     # z.x^2 - z.y^2 + c.x
+movsd	%xmm0, -16(%rbp) # write z.x
+movsd	-32(%rbp), %xmm0 # read c.x
+movapd	%xmm0, %xmm1     # c.x
+addsd	%xmm0, %xmm1     # c.x + c.x
+movsd	-24(%rbp), %xmm0 # read c.y
+mulsd	%xmm0, %xmm1     # c.x + c.x * c.y
+movsd	-40(%rbp), %xmm0 # read z.y
+addsd	%xmm1, %xmm0     # 2 * z.x * z.y + c.y
+movsd	%xmm0, -24(%rbp) # write z.y
+movsd	-16(%rbp), %xmm0 # read z.x
+movsd	%xmm0, -32(%rbp) # write z.x
+addl	$1, -4(%rbp)     # write ++n
+        \end{lstlisting}
+
+        \columnbreak
+
+        All the memory accesses are unnecessary. The optimized
+        code, uses exclusively the CPU registers. \\
+        One could manually use \texttt{register}.
+        % table - memory accesses
+        \begin{table}[H]
+            \centering
+            \begin{tabular}{cc}
+                \toprule
+                \textbf{Basic} & \textbf{Optimized} \\
+                \midrule
+                70 & 20 \\
+                \bottomrule
+            \end{tabular}
+            \caption{Memory accesses}
+        \end{table}
+        \textbf{ILP} \\
+        $-$ pipeline stalls $\rightarrow$ $+$ throughput.
+    \end{multicols}
+\end{frame}
+%
+%   Better Data Alignment
+%
+\begin{frame}[fragile,t]{Better Data Alignment}
+    \begin{multicols*}{2}
+
+    %include PNG
+    \begin{figure}[H]
+        % \centering
+        \includegraphics[
+            width=0.45\textwidth,
+            clip,
+            % trim=0 35cm 45cm 35cm
+        ]{images/DataAlignmentExample.png}
+    \end{figure}
+    % \vspace{-10cm}
+    \footnotesize{Example of data alignment with a $32$-bit cpu and a cache
+    line size of $32$ bytes. When the data is aligned it can be mapped 
+    with just one cache line.}
+    % The data is the \texttt{MOV [1234h], AX} instruction.
+
+    \columnbreak
+
+    A memory address is said to be $n$-byte aligned if it is a multiple
+    of $n$, where $n$ is a power of $2$. \\
+    Modern CPUs can access memory by a single memory word at a time,
+    which is usually $64$ bits, $128$ bits, $256$ bits. \\
+    The amd64 architecture provides sixteen $128$-bit \texttt{xmm0-15} registers
+    used for SIMD operations. Two doubles fit in a single register. \\
+    By aligning data (\texttt{p2align}), we ensure that \texttt{c.x} and \texttt{c.y}
+    are stored in the same memory word.
+        
+    \end{multicols*}
+\end{frame}
+\begin{frame}[fragile]{Better Data Alignment consequences}
+    Then, the \texttt{movapd} instruction, which can move two packed
+    double-precision floating-point values at once, can be used. \\
+    Also, when can use the \texttt{mulpd} instruction to perform the two
+    multiplications $c.x \cdot c.x$ and $c.y \cdot c.y$ at once. \\
+    Nowadays, all CPUs support SIMD instructions, enabling for 
+    CPU level parallelism. \\
+    Additionally, by aligning data, we optimize the cache usage
+    mapping more data in the same cache line. \\
 \end{frame}
 
 %
@@ -197,7 +277,7 @@ int mandelbrot(const Complex c) {
 %
 \begin{frame}[fragile,t]{MPI}
     Message Passing Interface is a standard for parallel and distributed
-    computing. Interaction between processes must be explicitly defined.
+    computing. Communication between processes must be explicitly defined.
     \textbf{Idea}: we want to distribute the load in a dynamic way as
     the OpenMP code does. \\
     \textbf{Solution}: we define a \texttt{MPI\_CHUNK\_SIZE} and we build
@@ -237,9 +317,7 @@ int mandelbrot(const Complex c) {
     to overlap computation and communication and reduce the waiting time.
     The root process sends only $2\times4$ bytes, but receive 
     $$2\times4+\texttt{MPI\_CHUNK\_SIZE}\times\texttt{image\_t}$$
-    bytes, where \texttt{image\_t} is either $1$ or $2$ bytes. \\
-    Hence, the root process is the bottleneck of the communication.
-
+    bytes, where \texttt{image\_t} is either $1$ or $2$ bytes.
 \end{frame}
 \begin{frame}[fragile,t]{MPI - Communication}
     One could decide to use two \enquote{weak} processes, one
@@ -267,11 +345,11 @@ int mandelbrot(const Complex c) {
         proportionally to the number of processes. We expect the
         execution time to remain constant.
     \end{itemize}
-    In both cases we perform the same test once by fixing the number
+    In both cases we perform the same test, once by fixing the number
     of MPI processes to 1 and varying the number of OpenMP threads,
     and once by fixing the number of OpenMP threads to 1 and varying
     the number of MPI processes. \\
-    Every test is repeated for different problem sizes: $512 \times 512$
+    Every test is repeated for two problem sizes: $512 \times 512$
     and $4096 \times 4096$.
 \end{frame}
 
