@@ -120,7 +120,7 @@ int mandelbrot(const Complex c) {
     \end{lstlisting}
 \end{frame}
 \begin{frame}[fragile,t]{Code Optimizations}
-    Let's cnosider a couple of optimizations:
+    Let's consider a couple of optimizations:
     \begin{itemize}
         \item \texttt{const Complex c}: the \texttt{const} keyword
         makes the variable \texttt{c} read-only. However, this also
@@ -357,7 +357,7 @@ addl	$1, -4(%rbp)     # write ++n
 %   Strong Scaling
 %
 \begin{frame}[fragile,t]{Strong Scaling}
-    We compare the experimental data with the Amdal's law
+    We compare the experimental data with the Amdahal's law
     given $p=1$.
     \begin{figure}[H]
         \centering
@@ -407,7 +407,7 @@ addl	$1, -4(%rbp)     # write ++n
                 };
                 \addlegendentry{Real}
             
-            % Orange line: Amdal
+            % Orange line: Amdahal
             \addplot[
                 color=orange,
                 mark=none,
@@ -428,7 +428,7 @@ addl	$1, -4(%rbp)     # write ++n
                 (88, 4.219984693181818)
                 (96, 3.868319302083333)
                 };
-                \addlegendentry{Amdal}
+                \addlegendentry{Amdahal}
             \end{axis}
         \end{tikzpicture}
         }
@@ -479,7 +479,7 @@ addl	$1, -4(%rbp)     # write ++n
                 };
                 \addlegendentry{Real}
             
-            % Orange line: Amdal
+            % Orange line: Amdahal
             \addplot[
                 color=orange,
                 mark=none,
@@ -500,7 +500,7 @@ addl	$1, -4(%rbp)     # write ++n
                 (88, 0.3968973494318185)
                 (96, 0.3910242578125003)
                 };
-                \addlegendentry{Amdal}
+                \addlegendentry{Amdahal}
             \end{axis}
         \end{tikzpicture}
         }
@@ -567,7 +567,7 @@ addl	$1, -4(%rbp)     # write ++n
                 };
                 \addlegendentry{Real}
             
-            % Orange line: Amdal
+            % Orange line: Amdahal
             \addplot[
                 color=orange,
                 mark=none,
@@ -598,7 +598,7 @@ addl	$1, -4(%rbp)     # write ++n
                 (23, 18.86942243478259)
                 (24, 18.11792191666665)
                 };
-                \addlegendentry{Amdal}
+                \addlegendentry{Amdahal}
             \end{axis}
         \end{tikzpicture}
         }
@@ -662,7 +662,7 @@ addl	$1, -4(%rbp)     # write ++n
                 };
                 \addlegendentry{Real}
             
-            % Orange line: Amdal
+            % Orange line: Amdahal
             \addplot[
                 color=orange,
                 mark=none,
@@ -693,7 +693,7 @@ addl	$1, -4(%rbp)     # write ++n
                 (23, 0.2823959565217402)
                 (24, 0.2705401666666678)
                 };
-                \addlegendentry{Amdal}
+                \addlegendentry{Amdahal}
             \end{axis}
         \end{tikzpicture}
         }

@@ -582,25 +582,23 @@
     \textbf{Basic Linear}: \\
     The root process sends the data to every other process in 
     a round-robin fashion. \\
-    Number of steps: $n-1$.
+    Number of steps: $n-1$. \\
     \vspace*{.25cm}
     \textbf{Chain}: \\
     The root process sends the data to the next process, which forwards
     the data to the next process, and so on. \\
-    Number of steps: $n-1$.
+    Number of steps: $n-1$. \\
     \vspace*{.25cm}
     \textbf{Binary Tree}: \\
-    The data is divided in chunks. The root process sends the first two
-    to two different processes. Each of these processes sends the data
-    to two other processes, and so on. \\
-    Number of steps: $\log_2(n)$.
+    The root process sends the data to two processes, which forward
+    the data to two other processes, and so on. \\
 \end{frame}
 \begin{frame}[fragile]{Broadcast algorithms}
     \textbf{Binomial Tree}: \\
     Each process communicates with a subset of other processes.
     \begin{enumerate}
         \item[$t_0:$] $P_0$ $\rightarrow$ $P_1$,
-        \item[$t_1:$] $P_0$ $\rightarrow$ $P_1$, $P_2$ $\rightarrow$ $P_3$,
+        \item[$t_1:$] $P_0$ $\rightarrow$ $P_2$, $P_1$ $\rightarrow$ $P_3$,
         \item[$t_2:$] $P_0$ $\rightarrow$ $P_4$, $P_2$ $\rightarrow$ $P_5$, $P_3$ $\rightarrow$ $P_6$,
         \item[$t_3:$] \dots
     \end{enumerate}
@@ -1110,8 +1108,7 @@
 
         \columnbreak
 
-        Especially at low message size, we can notice the two main
-        transitions in the latency:
+        we expect two main transitions in the latency:
         \begin{itemize}
             \item At 12 processes the first socket is filled
             \item at 24 processes the first node is filled
